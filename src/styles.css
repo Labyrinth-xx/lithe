@@ -45,12 +45,31 @@ body {
   user-select: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  #statusbar {
-    background: #2a2a2a;
-    border-top-color: #3a3a3a;
-    color: #aaa;
-  }
+/* 手动深色主题（body.dark 由 theme.ts 控制，优先于系统偏好） */
+body.dark #statusbar {
+  background: #2a2a2a;
+  border-top-color: #3a3a3a;
+  color: #aaa;
+}
+
+#statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#theme-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+#theme-toggle:hover {
+  background: rgba(127, 127, 127, 0.18);
 }
 
 #status-state {

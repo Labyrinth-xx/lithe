@@ -11,7 +11,7 @@
 ## 技术栈
 
 - **外壳**：Tauri v2（Rust）—— 用 macOS 原生 WKWebView，体积小
-- **编辑内核**：Vditor 3（IR 即时渲染模式）—— 静态资源本地化在 `public/vditor/`，断网可用
+- **编辑内核**：Vditor 3（IR 即时渲染模式）—— 静态资源本地化在 `public/vditor/`，断网可用。已启用：精选工具栏、KaTeX 公式、highlight.js 代码高亮、Mermaid 等图表、大纲面板、字数统计、深色/浅色主题切换
 - **前端**：原生 TypeScript + Vite（无框架）
 
 ## 目录结构
@@ -19,10 +19,12 @@
 ```
 markdown-reader/
 ├─ src/                    # 前端
-│  ├─ main.ts              # 编排：初始化编辑器/加载文件/自动存盘/外部刷新/快捷键
+│  ├─ main.ts              # 编排：初始化编辑器/加载文件/自动存盘/外部刷新/快捷键/主题接线
 │  ├─ sync-logic.ts        # 纯函数：外部变动决策（ignore/reload/conflict），可单测
-│  ├─ styles.css           # 布局 + 标题字号兜底
-│  └─ index.html(根目录)   # 编辑器容器 + 状态栏
+│  ├─ toolbar.ts           # 精选工具栏常量（编辑增强）
+│  ├─ theme.ts             # 深色/浅色主题切换（系统偏好 + localStorage + setTheme）
+│  ├─ styles.css           # 布局 + 标题字号兜底 + 主题按钮/深色状态栏
+│  └─ index.html(根目录)   # 编辑器容器 + 状态栏（含主题切换按钮）
 ├─ src-tauri/
 │  ├─ src/lib.rs           # Rust：文件读写命令 + 双击打开 + 后台轮询监测
 │  ├─ tauri.conf.json      # 文件关联 + 窗口/打包配置

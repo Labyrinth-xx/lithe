@@ -4,6 +4,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { decideExternalChange } from "./sync-logic";
+import { TOOLBAR } from "./toolbar";
+import {
+  initTheme,
+  toggleTheme,
+  getPreferredTheme,
+  CONTENT_THEME_PATH,
+  type ThemeMode,
+} from "./theme";
 
 const SAMPLE = `# Markdown Reader
 
@@ -34,6 +42,12 @@ function setStatus(file: string, state: string): void {
 
 function setTitle(name: string): void {
   void getCurrentWindow().setTitle(name);
+}
+
+/** 主题切换按钮图标随当前主题更新。 */
+function updateThemeButton(mode: ThemeMode): void {
+  const btn = document.querySelector<HTMLButtonElement>("#theme-toggle");
+  if (btn) btn.textContent = mode === "dark" ? "☀️" : "🌙";
 }
 
 /** 把磁盘内容放进编辑器，期间屏蔽自动存盘。 */
@@ -112,16 +126,33 @@ function handleExternalChange(diskContent: string): void {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  // 构造前先定初始主题，避免深色用户出现「先浅后深」的首帧闪烁。
+  const initial = getPreferredTheme();
+  const dark = initial === "dark";
+  document.body.classList.toggle("dark", dark); // 让状态栏从第一帧就对
+
   vditor = new Vditor("editor", {
     mode: "ir",
     height: "100%",
     cdn: "/vditor",
     cache: { enable: false },
     value: "",
-    toolbar: [],
-    preview: { hljs: { lineNumber: false } },
+    toolbar: TOOLBAR,
+    counter: { enable: true, type: "text" },
+    outline: { enable: false, position: "left" },
+    theme: dark ? "dark" : "classic",
+    preview: {
+      hljs: { enable: true, lineNumber: false, style: dark ? "github-dark" : "github" },
+      math: { engine: "KaTeX", inlineDigit: true },
+      theme: { current: initial, path: CONTENT_THEME_PATH },
+    },
     input: () => scheduleSave(),
     after: async () => {
+      // vditor 已就绪：同步主题 + 绑定切换按钮（绑在这里避免 ready 前被点的竞态）。
+      updateThemeButton(initTheme(vditor));
+      document
+        .querySelector<HTMLButtonElement>("#theme-toggle")
+        ?.addEventListener("click", () => updateThemeButton(toggleTheme(vditor)));
       currentPath = await invoke<string | null>("get_opened_file");
       void loadCurrent();
     },
