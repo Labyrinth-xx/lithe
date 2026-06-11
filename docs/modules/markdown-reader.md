@@ -16,7 +16,7 @@
   - 系统 Chrome（仅开发期自测用 playwright 驱动，运行时不需要）
 
 ## Owns（拥有的数据）
-- 代码目录：`/Users/zzx/Code/AI_code/md-reader/`
+- 代码目录：`/Users/zzx/Code/AI_code/markdown-reader/`
 - 安装产物：`/Applications/Markdown Reader.app`
 - 打包产物：`src-tauri/target/release/bundle/`（.app + .dmg）
 - macOS 注册：Launch Services 里登记为 `.md`/`.markdown` 处理程序（identifier `com.zzx.markdownreader`）
@@ -25,7 +25,7 @@
 ## Delete Path（干净卸载路径）
 1. 退出 app（⌘Q）
 2. 删安装的应用：`rm -rf "/Applications/Markdown Reader.app"`
-3. 删项目源码：`rm -rf /Users/zzx/Code/AI_code/md-reader`
+3. 删项目源码：`rm -rf /Users/zzx/Code/AI_code/markdown-reader`
 4. 注销 Launch Services 关联：
    `/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -u "/Applications/Markdown Reader.app"`
 5. 把 `.md` 默认打开程序改回去（如之前是 VS Code）：

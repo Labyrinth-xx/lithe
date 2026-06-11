@@ -17,7 +17,7 @@
 ## 目录结构
 
 ```
-md-reader/
+markdown-reader/
 ├─ src/                    # 前端
 │  ├─ main.ts              # 编排：初始化编辑器/加载文件/自动存盘/外部刷新/快捷键
 │  ├─ sync-logic.ts        # 纯函数：外部变动决策（ignore/reload/conflict），可单测
