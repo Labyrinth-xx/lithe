@@ -1,0 +1,39 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7A6CF5"/>
+      <stop offset="1" stop-color="#4B33D6"/>
+    </linearGradient>
+    <linearGradient id="nib" x1="512" y1="350" x2="512" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E4DEFF"/>
+    </linearGradient>
+    <filter id="nibShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#1B1052" flood-opacity="0.30"/>
+    </filter>
+    <mask id="nibCut">
+      <rect x="0" y="0" width="1024" height="1024" fill="black"/>
+      <!-- nib silhouette (visible) -->
+      <path d="M512 712
+               C 476 616 446 524 416 442
+               C 405 414 421 364 462 360
+               L 562 360
+               C 603 364 619 414 608 442
+               C 578 524 548 616 512 712 Z" fill="white"/>
+      <!-- breather hole (punched back) -->
+      <circle cx="512" cy="446" r="24" fill="black"/>
+      <!-- ink slit (punched back) -->
+      <path d="M512 476 L519 486 L514 648 L512 664 L510 648 L505 486 Z" fill="black"/>
+    </mask>
+  </defs>
+
+  <!-- rounded-square background with macOS-style margin -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- subtle top sheen -->
+  <rect x="100" y="100" width="824" height="412" rx="185" fill="#FFFFFF" opacity="0.07"/>
+
+  <!-- pen nib that doubles as a downward arrow (the markdown ↓ motif) -->
+  <g filter="url(#nibShadow)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#nib)" mask="url(#nibCut)"/>
+  </g>
+</svg>

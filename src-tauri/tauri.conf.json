@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Markdown Reader",
+  "productName": "Lithe",
   "version": "0.3.0",
-  "identifier": "com.zzx.markdownreader",
+  "identifier": "com.zzx.lithe",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Markdown Reader",
+        "title": "Lithe",
         "width": 900,
         "height": 680
       }

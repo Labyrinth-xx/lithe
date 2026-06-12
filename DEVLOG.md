@@ -1,4 +1,21 @@
-# DEVLOG — Markdown Reader
+# DEVLOG — Lithe
+
+## 2026-06-12 — 改名 Lithe + 作品集门面
+
+### 完成内容
+- 定方向：放弃「打市场」，按「自己每天用 + 作品集」轻装发布（市场调研结论见 `~/.claude/plans/md-typora-skill-generic-sphinx.md`）。
+- 全项目从 Markdown Reader / md-reader 改名 **Lithe**：productName / identifier(`com.zzx.lithe`) / 窗口标题 / package 名 / Rust crate(`lithe` + `lithe_lib`) / 文档。
+- 新品牌图标：「钢笔尖＝向下箭头」靛紫方块（源文件 `src-tauri/icons/icon-source.svg`，`tauri icon` 生成全套）。
+- 重写 README 为作品集级（含「不锁文件 + 与 AI agent 实时调和编辑」技术亮点 + 构建/安装说明）；加 MIT LICENSE。
+
+### 关键决策
+- 名字选 Lithe：12 个候选里唯一同类目零撞车（首选 Marco 已被同名 Markdown 编辑器占用，淘汰）。
+- 「AI 协同」从市场卖点降级为作品集技术亮点——调研显示该需求用户尚未成规模喊出（详见 plan 第一节）。
+- 内部 localStorage 键 `md-reader-theme` 保留不改（改了会清掉已存主题偏好，且对用户不可见）。
+
+### 遗留问题 / 下次继续
+- README 截图待补（`docs/screenshots/`，自用时截或让我用 run skill 自动截）。
+- 日用功能（Find&Replace ⌘F、图片粘贴本地化）等「自己用顺」后按真实摩擦再做。
 
 ## 2026-06-12 — 梯队二（上）：文件树侧边栏 + 浏览器式标签页
 

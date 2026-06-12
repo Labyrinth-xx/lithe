@@ -22,7 +22,7 @@ import {
 
 declare const __APP_VERSION__: string; // 由 vite define 在构建期注入（见 vite.config.ts）
 
-const SAMPLE = `# Markdown Reader
+const SAMPLE = `# Lithe
 
 没有指定文件时显示这段示例。双击一个 \`.md\` 文件即可加载真实文档。
 
@@ -72,14 +72,14 @@ async function loadCurrent(): Promise<void> {
   if (!currentPath) {
     applyContent(SAMPLE);
     setStatus("示例文档（未打开文件）", "");
-    setTitle("Markdown Reader");
+    setTitle("Lithe");
     return;
   }
   try {
     const content = await invoke<string>("read_file", { path: currentPath });
     applyContent(content);
     setStatus(basename(currentPath), "已加载");
-    setTitle(`${basename(currentPath)} — Markdown Reader`);
+    setTitle(`${basename(currentPath)} — Lithe`);
   } catch (e) {
     setStatus(basename(currentPath), String(e));
   }
