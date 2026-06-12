@@ -2,7 +2,7 @@
 
 A lightweight, native **macOS Markdown editor** — Typora-style inline WYSIWYG, ~23 MB, fully offline. Its party trick: **it never locks your files**, so an AI agent (Claude Code, Cursor) or `git` can rewrite the same `.md` on disk while you have it open, and Lithe reconciles the change instead of clobbering it.
 
-> _Screenshots live in `docs/screenshots/` — run `npm run tauri dev`, open a `.md`, and drop a capture there._
+![Lithe — inline WYSIWYG Markdown editing on macOS](docs/screenshots/editor.png)
 
 ---
 
