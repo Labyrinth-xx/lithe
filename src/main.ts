@@ -6,6 +6,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { decideExternalChange } from "./sync-logic";
 import { TOOLBAR } from "./toolbar";
 import {
+  initWorkspace,
+  openFile,
+  ensureFolderFor,
+  reflectDirty,
+} from "./workspace";
+import {
   initTheme,
   toggleTheme,
   getPreferredTheme,
@@ -55,6 +61,7 @@ function applyContent(content: string): void {
   loading = true;
   vditor.setValue(content);
   dirty = false;
+  reflectDirty(false); // 清掉 active 标签的未保存圆点
   lastWrittenContent = content; // 编辑器与磁盘此刻一致
   setTimeout(() => {
     loading = false;
@@ -82,22 +89,59 @@ async function loadCurrent(): Promise<void> {
 function scheduleSave(): void {
   if (loading || !currentPath) return;
   dirty = true;
+  reflectDirty(true); // active 标签亮起未保存圆点
   setStatus(basename(currentPath), "未保存…");
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveNow, SAVE_DELAY);
+  saveTimer = setTimeout(() => void saveNow(), SAVE_DELAY);
 }
 
-async function saveNow(): Promise<void> {
-  if (!currentPath || !dirty) return;
+/** 立即存盘。返回是否成功——切换文件时据此决定要不要中止（存盘失败不丢编辑）。 */
+async function saveNow(): Promise<boolean> {
+  if (!currentPath || !dirty) return true;
   const content = vditor.getValue();
   try {
     await invoke("write_file", { path: currentPath, content });
     dirty = false;
+    reflectDirty(false);
     lastWrittenContent = content; // 记下自己写的内容，供回声抑制
     setStatus(basename(currentPath), "已保存");
+    return true;
   } catch (e) {
     setStatus(basename(currentPath), String(e));
+    return false;
   }
+}
+
+/** 切换当前文件：存旧 → 改后端 target → 载新。返回是否切换成功。
+ *  灵魂机制要害：set_target_file 必须在 loadCurrent 之前，把后台轮询改盯新文件，
+ *  否则切换后「外部改动自动刷新」仍盯旧文件、对新文件失灵。 */
+async function switchToFile(path: string): Promise<boolean> {
+  if (path === currentPath) return true;
+  if (dirty && !(await saveNow())) return false; // 旧文件存盘失败 → 中止切换
+  clearTimeout(saveTimer); // 取消旧文件待发的防抖存盘
+  // 先把后端轮询改盯新文件；改不成功就不切，绝不让「轮询」与「编辑器」脱钩。
+  try {
+    await invoke("set_target_file", { path });
+  } catch (e) {
+    setStatus(basename(path), String(e));
+    return false;
+  }
+  currentPath = path; // 后端已就位，再提交前端指针
+  await loadCurrent();
+  return true;
+}
+
+/** 无文件态：存好当前改动后清空 currentPath + 让后端停止轮询，显示示例。供关掉最后一个标签时用。 */
+async function showSample(): Promise<void> {
+  if (dirty) await saveNow();
+  clearTimeout(saveTimer);
+  currentPath = null;
+  try {
+    await invoke("set_target_file", { path: null }); // 清空后端目标，轮询线程闲置
+  } catch (e) {
+    console.error("清空后端目标失败：", e);
+  }
+  await loadCurrent();
 }
 
 /** 外部（如 CC 后台）改了文件时，后端轮询线程会推 file-changed。 */
@@ -153,8 +197,15 @@ window.addEventListener("DOMContentLoaded", () => {
       document
         .querySelector<HTMLButtonElement>("#theme-toggle")
         ?.addEventListener("click", () => updateThemeButton(toggleTheme(vditor)));
-      currentPath = await invoke<string | null>("get_opened_file");
-      void loadCurrent();
+      // 侧边栏 + 标签：把编辑器操作以 bridge 形式交给 workspace 编排。
+      initWorkspace({ switchToFile, saveNow, showSample });
+      const opened = await invoke<string | null>("get_opened_file");
+      if (opened) {
+        await openFile(opened); // 建标签 + 切到该文件
+        await ensureFolderFor(opened); // 自动带出所在文件夹的 .md 树
+      } else {
+        void loadCurrent(); // 无指定文件 → 示例文档，树留空
+      }
     },
   });
   (window as unknown as { __vditor: Vditor }).__vditor = vditor;
@@ -171,10 +222,10 @@ window.addEventListener("DOMContentLoaded", () => {
   // 外部文件变动 → 实时刷新
   void listen<string>("file-changed", (e) => handleExternalChange(e.payload));
 
-  // app 已在运行时，又双击了另一个 .md
+  // app 已在运行时，又双击了另一个 .md → 新开标签 + 切换 + 带出其文件夹
   void listen<string>("open-file", async (e) => {
-    if (dirty) await saveNow();
-    currentPath = e.payload;
-    void loadCurrent();
+    const path = e.payload;
+    await openFile(path);
+    await ensureFolderFor(path);
   });
 });

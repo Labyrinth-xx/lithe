@@ -1,5 +1,27 @@
 # DEVLOG — Markdown Reader
 
+## 2026-06-12 — 梯队二（上）：文件树侧边栏 + 浏览器式标签页
+
+### 完成内容
+- **文件树侧边栏**：新增 Rust `read_dir_tree` 命令，递归列文件夹内所有 `.md`（目录在前/文件在后排序、剪空分支、深度上限 12、跳 symlink）；前端 `src/file-tree/`（纯状态 `tree-data.ts` + 递归渲染 `tree-view.ts`）支持子文件夹展开折叠、点文件切换。「选择文件夹」按钮走 `tauri-plugin-dialog`，双击打开文件时自动带出同目录。
+- **顶部浏览器式标签页**：新增 `src/tabs/`（纯不可变状态 `tab-state.ts` + 渲染 `tab-view.ts`）；每开一个文件一个标签，并排顶端，点标签切换，标签显示文件名 + 未保存圆点 + 关闭叉。
+- **编排层 `src/workspace.ts`**：把文件树 ↔ 标签 ↔ main 串起来，main 仅经 `WorkspaceBridge`（switchToFile/saveNow/showSample）被调用，编辑器状态仍集中在 main。
+- **布局重排**：`index.html` + `styles.css` 从「编辑器 + 固定底栏」改为 grid 三行（标签栏 / 工作区[侧栏+编辑器] / 状态栏），保留 `#editor` 挂载点，侧栏可折叠，全部深色态联动。
+- **灵魂机制要害**：新增 `set_target_file` 命令，`switchToFile` 切文件时「存旧 → 重接后端轮询 → 载新」，后端没改成功就中止切换；关掉最后一个标签 `set_target_file(null)` 让轮询闲置。
+
+### 关键决策
+- **切文件必经后端重接轮询**：轮询盯后端 `target_file` 非前端 `currentPath`，是本批最大暗坑；先 set_target_file 成功再提交 currentPath，让「轮询↔编辑器」永不脱钩。
+- **标签 dirty 不变量**：只有 active 可脏 → 圆点镜像 main 的单个 dirty，不每标签存储。
+- **vertical slice + 干净删除路径**：tabs/ file-tree/ workspace 各带 Delete Path 注释，整套可一次性摘除。
+
+### 自测手段
+- `npm run build`（tsc + vite）通过；`src-tauri` `cargo check` 通过；`node test-sync-logic.ts` 6/6（sync-logic 未碰）。
+- 独立 code-reviewer 审 diff：0 CRITICAL；2 HIGH 已修（set_target_file 失败时中止切换并回滚、关最后标签时清空后端目标）+ 关闭切换失败时回滚标签。确认四条灵魂机制（不锁文件/轮询跟随切换后的新文件/回声抑制/防抖存盘）完好。
+- 待用户 `npm run tauri dev` 真窗口烟测：见 `~/.claude/plans/` 本批计划的「验证」清单，重点验「切到 B 后外部改 B → 1s 内刷新」证明轮询已重接。
+
+### 遗留问题 / 下次继续
+- 梯队二（下）：查找替换（⌘F/⌘H）、图片粘贴存本地 assets。梯队三：导出 HTML/PDF、最近文件、源码模式。
+
 ## 2026-06-12 — 对标 Typora 第一批：编辑增强（点亮 Vditor 内置能力）
 
 ### 完成内容
