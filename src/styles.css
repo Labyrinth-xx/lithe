@@ -254,6 +254,11 @@ body.dark .tree-file.active {
   font-variant-numeric: tabular-nums;
 }
 
+#status-version {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
 /* IR 即时渲染编辑区：确保标题有清晰的字号层级（兜底，防止某些资源未生效时标题变平） */
 .vditor-ir,
 .vditor-reset {

@@ -1,10 +1,20 @@
 import { defineConfig } from "vite";
+import { readFileSync } from "node:fs";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// 把 package.json 的版本号在构建期注入前端，状态栏显示用（单一来源，免漂移）。
+const pkg = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+) as { version: string };
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

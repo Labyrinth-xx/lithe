@@ -20,6 +20,8 @@ import {
   type ThemeMode,
 } from "./theme";
 
+declare const __APP_VERSION__: string; // 由 vite define 在构建期注入（见 vite.config.ts）
+
 const SAMPLE = `# Markdown Reader
 
 没有指定文件时显示这段示例。双击一个 \`.md\` 文件即可加载真实文档。
@@ -167,6 +169,10 @@ function handleExternalChange(diskContent: string): void {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  // 状态栏显示版本号（构建期注入，单一来源 package.json）。
+  const verEl = document.querySelector<HTMLElement>("#status-version");
+  if (verEl) verEl.textContent = `v${__APP_VERSION__}`;
+
   // 构造前先定初始主题，避免深色用户出现「先浅后深」的首帧闪烁。
   const initial = getPreferredTheme();
   const dark = initial === "dark";
