@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { decideExternalChange } from "./sync-logic";
 import { TOOLBAR } from "./toolbar";
+import { basename } from "./utils";
 import {
   initWorkspace,
   openFile,
@@ -34,10 +35,6 @@ let dirty = false;
 let loading = false; // setValue 期间为 true，避免把“加载”误当成“用户编辑”触发存盘
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let lastWrittenContent: string | null = null; // 本程序最后写盘/载入的内容，用于回声抑制
-
-function basename(p: string): string {
-  return p.split("/").pop() || p;
-}
 
 function setStatus(file: string, state: string): void {
   const fileEl = document.querySelector<HTMLElement>("#status-file");
@@ -88,8 +85,8 @@ async function loadCurrent(): Promise<void> {
 
 function scheduleSave(): void {
   if (loading || !currentPath) return;
+  if (!dirty) reflectDirty(true); // 仅在 false→true 翻转时刷标签圆点，避免每次按键重建标签栏
   dirty = true;
-  reflectDirty(true); // active 标签亮起未保存圆点
   setStatus(basename(currentPath), "未保存…");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => void saveNow(), SAVE_DELAY);

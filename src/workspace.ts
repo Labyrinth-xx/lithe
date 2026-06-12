@@ -28,6 +28,7 @@ import {
   type TreeState,
 } from "./file-tree/tree-data";
 import { renderTree } from "./file-tree/tree-view";
+import { parentDir } from "./utils";
 
 /** main.ts 暴露给 workspace 的编辑器操作（workspace 只调这三个，不碰编辑器内部状态）。 */
 export interface WorkspaceBridge {
@@ -44,11 +45,6 @@ let tabbarEl: HTMLElement;
 let treeEl: HTMLElement;
 let tabs: TabsState = EMPTY_TABS;
 let tree: TreeState = EMPTY_TREE;
-
-function parentDir(path: string): string {
-  const i = path.lastIndexOf("/");
-  return i <= 0 ? "/" : path.slice(0, i);
-}
 
 function renderAllTabs(): void {
   renderTabs(tabbarEl, tabs, {

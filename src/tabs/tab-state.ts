@@ -4,10 +4,14 @@
 // 关键不变量：一次只有 active 文件在编辑器里，切走前总会先存盘，
 // 所以任意时刻最多只有 active 标签是 dirty，非 active 标签恒为已保存。
 //
+// 依赖 ../utils 的 basename（与 main.ts 共用，勿在此重复实现）。
+//
 // Delete Path（删除标签功能）：
 //   1. 删 src/tabs/ 整个目录
 //   2. workspace.ts 去掉 TabsState 相关编排
 //   3. index.html 删 #tabbar；styles.css 删 #tabbar/.tab 规则
+
+import { basename } from "../utils";
 
 export interface OpenTab {
   readonly path: string;
@@ -21,10 +25,6 @@ export interface TabsState {
 }
 
 export const EMPTY_TABS: TabsState = { tabs: [], activePath: null };
-
-function basename(p: string): string {
-  return p.split("/").pop() || p;
-}
 
 /** 打开（或激活已存在的）标签。已存在则只切 active，不重复加。 */
 export function addTab(s: TabsState, path: string): TabsState {
