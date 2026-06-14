@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -231,26 +231,23 @@ fn spawn_file_watcher(handle: tauri::AppHandle) {
         let mut baselines: HashMap<PathBuf, SystemTime> = HashMap::new();
         loop {
             std::thread::sleep(Duration::from_millis(1000));
-            // 取当前所有窗口在看文件的去重并集
-            let paths: Vec<PathBuf> = {
+            // 取当前所有窗口在看文件的并集（HashSet 天然去重，retain 命中 O(1)）
+            let paths: HashSet<PathBuf> = {
                 let state: State<AppState> = handle.state();
-                let watched = state.watched.lock().unwrap();
-                let mut set: Vec<PathBuf> = watched.values().cloned().collect();
-                set.sort();
-                set.dedup();
+                let set = state.watched.lock().unwrap().values().cloned().collect();
                 set
             };
             // 丢弃已无人在看的文件基线
             baselines.retain(|p, _| paths.contains(p));
-            for path in paths {
-                let Ok(mtime) = std::fs::metadata(&path).and_then(|m| m.modified()) else {
+            for path in &paths {
+                let Ok(mtime) = std::fs::metadata(path).and_then(|m| m.modified()) else {
                     continue;
                 };
-                match baselines.get(&path) {
+                match baselines.get(path) {
                     Some(&st) => {
                         if mtime > st {
                             baselines.insert(path.clone(), mtime);
-                            if let Ok(content) = std::fs::read_to_string(&path) {
+                            if let Ok(content) = std::fs::read_to_string(path) {
                                 let _ = handle.emit(
                                     "file-changed",
                                     FileChange {
