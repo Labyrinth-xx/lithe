@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -15,20 +16,41 @@ struct TreeNode {
     children: Vec<TreeNode>,
 }
 
-/// 应用状态：当前要打开/正在看的目标文件路径。
-/// 来源优先级：双击打开（RunEvent::Opened）> 开发期环境变量 MD_READER_FILE。
+/// 应用状态：多窗口。每个窗口用自己的 label 作 key，互不串扰。
+/// - watched：各窗口当前正在看的文件（监听集合 = 所有 value 的并集）。
+/// - pending：新建/拖出窗口的初始文件，按 label 暂存，供该窗口前端启动时来取。
+///   main 窗口的初始文件（argv/env 或冷启动双击）启动时登记到 pending["main"]。
+/// - next_window：自增计数，给拖出/新开窗口生成唯一 label（doc-1、doc-2…）。
+/// - main_ready：主窗口是否已取过初始文件。一旦就绪，此后从桌面双击打开文件
+///   一律开「新窗口」（而非在现有窗口加标签）；冷启动首个文件仍交给主窗口。
 struct AppState {
-    target_file: Mutex<Option<PathBuf>>,
+    watched: Mutex<HashMap<String, PathBuf>>,
+    pending: Mutex<HashMap<String, PathBuf>>,
+    next_window: Mutex<u64>,
+    main_ready: Mutex<bool>,
 }
 
-/// 前端就绪后主动来取「该打开哪个文件」。None 表示没有指定文件（显示示例）。
+/// 外部改动通知载荷：带上是哪个文件，前端按路径过滤，只认自己窗口在看的那份。
+#[derive(serde::Serialize, Clone)]
+struct FileChange {
+    path: String,
+    content: String,
+}
+
+/// 前端就绪后主动来取「本窗口该打开哪个文件」。None 表示没指定（显示示例）。
+/// 按调用窗口的 label 从 pending 取——Tauri 自动注入调用方 Window。
 #[tauri::command]
-fn get_opened_file(state: State<AppState>) -> Option<String> {
+fn get_opened_file(window: tauri::Window, state: State<AppState>) -> Option<String> {
+    // 主窗口一旦来取过初始文件，即标记就绪：此后桌面双击的文件都开新窗口。
+    if window.label() == "main" {
+        *state.main_ready.lock().unwrap() = true;
+    }
+    // remove 而非 get：消费一次握手——同一窗口若重载页面不会再取到同一文件而重复开标签。
     state
-        .target_file
+        .pending
         .lock()
         .unwrap()
-        .as_ref()
+        .remove(window.label())
         .map(|p| p.to_string_lossy().to_string())
 }
 
@@ -44,14 +66,78 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| format!("保存失败：{e}"))
 }
 
-/// 前端经侧边栏/标签切换文件时，必须同步更新后端 target_file，
-/// 否则后台轮询线程仍盯着旧文件、新文件的外部改动收不到。
-/// path 为 null（关掉最后一个标签）时清空目标，轮询线程随即闲置不再读盘。
-/// 不 emit：让轮询线程下一拍在 `_ =>` 臂自行 re-baseline，避免切换瞬间误触发刷新。
+/// 前端经侧边栏/标签切换文件时，必须同步更新本窗口在后端的 watched 条目，
+/// 否则后台轮询仍盯着旧文件、新文件的外部改动收不到。
+/// path 为 null（关掉最后一个标签）时移除本窗口条目，该文件若无其他窗口在看即停止轮询。
+/// 不 emit：轮询线程见到新路径只记基线、不触发刷新，避免切换瞬间误刷。
 #[tauri::command]
-fn set_target_file(path: Option<String>, state: State<AppState>) -> Result<(), String> {
-    *state.target_file.lock().map_err(|e| e.to_string())? = path.map(PathBuf::from);
+fn set_target_file(
+    window: tauri::Window,
+    path: Option<String>,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut watched = state.watched.lock().map_err(|e| e.to_string())?;
+    match path {
+        Some(p) => {
+            watched.insert(window.label().to_string(), PathBuf::from(p));
+        }
+        None => {
+            watched.remove(window.label());
+        }
+    }
     Ok(())
+}
+
+/// 开一个新窗口装指定文件（或空窗口）。供命令 open_in_new_window 与桌面双击两条路径共用。
+/// path 为某文件 → 新窗口启动后 get_opened_file 取到它并加载；path 为 null → 空白新文档。
+/// pos 为 Some((x,y)) 时在该逻辑屏幕坐标打开（拖出标签时＝松手处）；None 则系统默认居中。
+/// 新窗口是同一份前端 app 的独立实例，复用「一窗口一编辑器」模型。
+fn spawn_doc_window(
+    app: &tauri::AppHandle,
+    path: Option<String>,
+    pos: Option<(f64, f64)>,
+) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let label = {
+        let mut n = state.next_window.lock().map_err(|e| e.to_string())?;
+        *n += 1;
+        format!("doc-{n}")
+    };
+    let mut builder =
+        tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("index.html".into()))
+            .title("Lithe")
+            .inner_size(900.0, 680.0);
+    if let Some((x, y)) = pos {
+        // 不让窗口跑到屏幕外（负坐标）；在松手处打开。
+        builder = builder.position(x.max(0.0), y.max(0.0));
+    }
+    builder.build().map_err(|e| e.to_string())?;
+    // 建窗成功后再登记初始文件：建窗失败就不会留下永不被取走的孤儿 pending 条目。
+    // 新窗口前端要到 vditor after() 才调 get_opened_file，远晚于此处同步插入，无竞态。
+    if let Some(p) = path {
+        state
+            .pending
+            .lock()
+            .map_err(|e| e.to_string())?
+            .insert(label, PathBuf::from(p));
+    }
+    Ok(())
+}
+
+/// 开一个新窗口（拖出标签 / 右键「在新窗口打开」/ Cmd+N）。
+/// x、y 为拖出松手处的逻辑屏幕坐标；二者齐备才用作开窗位置，否则居中。
+#[tauri::command]
+fn open_in_new_window(
+    app: tauri::AppHandle,
+    path: Option<String>,
+    x: Option<f64>,
+    y: Option<f64>,
+) -> Result<(), String> {
+    let pos = match (x, y) {
+        (Some(x), Some(y)) => Some((x, y)),
+        _ => None,
+    };
+    spawn_doc_window(&app, path, pos)
 }
 
 /// 是否为 Markdown 文件（与 tauri.conf.json 的 fileAssociations 保持一致）。
@@ -136,37 +222,49 @@ fn read_dir_tree(path: String) -> Result<TreeNode, String> {
     }))
 }
 
-/// 后台轮询线程：每秒检查当前目标文件的修改时间。
-/// 同一文件 mtime 前进 → 说明被外部改动 → 把最新内容 emit 给前端（前端再做回声抑制）。
-/// 首次见到某路径只记基线、不 emit（避免开文件时立刻"刷新"自己）。
+/// 后台轮询线程：每秒检查所有窗口正在看的文件（并集）的修改时间。
+/// 某文件 mtime 前进 → 被外部改动 → 把 {path, content} 广播给所有窗口（前端按 path 过滤 + 回声抑制）。
+/// 每个文件各记一条基线，首次见到只记基线不 emit（避免开文件/切换时立刻"刷新"自己）；
+/// 已无任何窗口在看的文件，其基线随之丢弃（下次再被打开会重新记基线、不误刷）。
 fn spawn_file_watcher(handle: tauri::AppHandle) {
     std::thread::spawn(move || {
-        let mut seen: Option<(PathBuf, SystemTime)> = None;
+        let mut baselines: HashMap<PathBuf, SystemTime> = HashMap::new();
         loop {
             std::thread::sleep(Duration::from_millis(1000));
-            let path = {
+            // 取当前所有窗口在看文件的去重并集
+            let paths: Vec<PathBuf> = {
                 let state: State<AppState> = handle.state();
-                let p = state.target_file.lock().unwrap().clone();
-                p
+                let watched = state.watched.lock().unwrap();
+                let mut set: Vec<PathBuf> = watched.values().cloned().collect();
+                set.sort();
+                set.dedup();
+                set
             };
-            let Some(path) = path else {
-                continue;
-            };
-            let Ok(mtime) = std::fs::metadata(&path).and_then(|m| m.modified()) else {
-                continue;
-            };
-            match &seen {
-                Some((sp, st)) if *sp == path => {
-                    if mtime > *st {
-                        seen = Some((path.clone(), mtime));
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            let _ = handle.emit("file-changed", content);
+            // 丢弃已无人在看的文件基线
+            baselines.retain(|p, _| paths.contains(p));
+            for path in paths {
+                let Ok(mtime) = std::fs::metadata(&path).and_then(|m| m.modified()) else {
+                    continue;
+                };
+                match baselines.get(&path) {
+                    Some(&st) => {
+                        if mtime > st {
+                            baselines.insert(path.clone(), mtime);
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                let _ = handle.emit(
+                                    "file-changed",
+                                    FileChange {
+                                        path: path.to_string_lossy().to_string(),
+                                        content,
+                                    },
+                                );
+                            }
                         }
                     }
-                }
-                _ => {
-                    // 新路径（或首次）：记下基线，不触发刷新
-                    seen = Some((path.clone(), mtime));
+                    None => {
+                        // 新路径（或首次）：记下基线，不触发刷新
+                        baselines.insert(path.clone(), mtime);
+                    }
                 }
             }
         }
@@ -182,17 +280,44 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
-            target_file: Mutex::new(initial),
+            watched: Mutex::new(HashMap::new()),
+            pending: Mutex::new(HashMap::new()),
+            next_window: Mutex::new(0),
+            main_ready: Mutex::new(false),
         })
-        .setup(|app| {
+        .setup(move |app| {
+            // 初始文件（argv/env 或冷启动双击）登记到 main 窗口的 pending，供其前端来取。
+            if let Some(p) = initial {
+                app.state::<AppState>()
+                    .pending
+                    .lock()
+                    .unwrap()
+                    .insert("main".to_string(), p);
+            }
             spawn_file_watcher(app.handle().clone());
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // 窗口关闭：清掉它在 watched/pending 的条目，避免轮询已关窗口的文件。
+            if let tauri::WindowEvent::Destroyed = event {
+                let label = window.label().to_string();
+                if let Some(state) = window.try_state::<AppState>() {
+                    // 用 if-let-Ok 而非 unwrap：万一某锁被毒化也不级联 panic 掉事件线程。
+                    if let Ok(mut w) = state.watched.lock() {
+                        w.remove(&label);
+                    }
+                    if let Ok(mut p) = state.pending.lock() {
+                        p.remove(&label);
+                    }
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_opened_file,
             read_file,
             write_file,
             set_target_file,
+            open_in_new_window,
             read_dir_tree
         ])
         .build(tauri::generate_context!())
@@ -201,11 +326,25 @@ pub fn run() {
             // 双击 .md / “打开方式” 选本 app 时触发，携带 file:// URL
             if let tauri::RunEvent::Opened { urls } = event {
                 if let Some(path) = urls.iter().filter_map(|u| u.to_file_path().ok()).next() {
-                    if let Some(state) = app_handle.try_state::<AppState>() {
-                        *state.target_file.lock().unwrap() = Some(path.clone());
+                    let Some(state) = app_handle.try_state::<AppState>() else {
+                        return;
+                    };
+                    let main_ready = *state.main_ready.lock().unwrap();
+                    if main_ready {
+                        // app 已在运行 + 主窗口已就绪 → 桌面双击开「新窗口」（独立窗口诉求）。
+                        let _ = spawn_doc_window(
+                            app_handle,
+                            Some(path.to_string_lossy().to_string()),
+                            None,
+                        );
+                    } else {
+                        // 冷启动首个文件 → 交给主窗口，其前端 get_opened_file 来取。
+                        state
+                            .pending
+                            .lock()
+                            .unwrap()
+                            .insert("main".to_string(), path);
                     }
-                    // app 已在运行时：通知前端切换到新文件（冷启动则由前端主动取）
-                    let _ = app_handle.emit("open-file", path.to_string_lossy().to_string());
                 }
             }
         });

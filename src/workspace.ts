@@ -29,6 +29,7 @@ import {
 } from "./file-tree/tree-data";
 import { renderTree } from "./file-tree/tree-view";
 import { parentDir } from "./utils";
+import { openInNewWindow, isOutsideCurrentWindow } from "./windows";
 
 /** main.ts 暴露给 workspace 的编辑器操作（workspace 只调这三个，不碰编辑器内部状态）。 */
 export interface WorkspaceBridge {
@@ -50,6 +51,8 @@ function renderAllTabs(): void {
   renderTabs(tabbarEl, tabs, {
     onActivate: (p) => void activate(p),
     onClose: (p) => void close(p),
+    onTearOut: (p, x, y) => void maybeTearOut(p, x, y),
+    onOpenInNewWindow: (p) => void tearOutTab(p),
   });
 }
 
@@ -93,6 +96,15 @@ export async function openFile(path: string): Promise<void> {
   renderAllTree();
 }
 
+/** 未命名新文档「另存为」成功后：内容已在编辑器、已写盘，这里只补建标签 + 高亮 + 带出文件夹，
+ *  不触发 switchToFile（无需重载，避免把刚写的内容又从盘读一遍）。 */
+export async function adoptNewFile(path: string): Promise<void> {
+  tabs = addTab(tabs, path);
+  renderAllTabs();
+  renderAllTree();
+  await ensureFolderFor(path);
+}
+
 async function activate(path: string): Promise<void> {
   if (path === tabs.activePath) return;
   const ok = await bridge.switchToFile(path);
@@ -119,6 +131,22 @@ async function close(path: string): Promise<void> {
     await bridge.showSample(); // 没标签了 → 回示例
   }
   renderAllTree();
+}
+
+/** 拖拽松手：落点在窗口外才拖出，落在窗口内当普通拖动忽略。 */
+async function maybeTearOut(path: string, screenX: number, screenY: number): Promise<void> {
+  if (await isOutsideCurrentWindow(screenX, screenY)) await tearOutTab(path, screenX, screenY);
+}
+
+/** 把一个标签拖出/移到新窗口（浏览器式「移动」语义）：开新窗口装它，再从本窗口移除。
+ *  唯一标签视为 no-op——它本就独占一窗，拖出没意义。
+ *  若拖出的是当前未存盘文件，先存盘，确保新窗口从磁盘读到最新内容（避免竞态）。
+ *  x/y 为松手处的屏幕坐标，传给后端在该处开窗（右键入口不传 → 居中）。 */
+async function tearOutTab(path: string, x?: number, y?: number): Promise<void> {
+  if (tabs.tabs.length <= 1) return;
+  if (path === tabs.activePath && !(await bridge.saveNow())) return; // 存盘失败则中止
+  await openInNewWindow(path, x, y);
+  await close(path); // 复用关闭逻辑：是 active 则自动切到相邻标签
 }
 
 /** 选文件夹按钮：弹系统目录选择框，选中则载入该文件夹的树（不动编辑器）。 */

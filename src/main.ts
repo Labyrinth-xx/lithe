@@ -3,15 +3,19 @@ import "vditor/dist/index.css";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { save } from "@tauri-apps/plugin-dialog";
 import { decideExternalChange } from "./sync-logic";
-import { TOOLBAR } from "./toolbar";
+import { confirmUnsavedClose } from "./unsaved-dialog";
+import { buildToolbar } from "./toolbar";
 import { basename } from "./utils";
 import {
   initWorkspace,
   openFile,
   ensureFolderFor,
+  adoptNewFile,
   reflectDirty,
 } from "./workspace";
+import { openInNewWindow } from "./windows";
 import {
   initTheme,
   toggleTheme,
@@ -21,13 +25,6 @@ import {
 } from "./theme";
 
 declare const __APP_VERSION__: string; // 由 vite define 在构建期注入（见 vite.config.ts）
-
-const SAMPLE = `# Lithe
-
-没有指定文件时显示这段示例。双击一个 \`.md\` 文件即可加载真实文档。
-
-在句子后面用 // 标注你的问题，例如 //这里我想问你
-`;
 
 const SAVE_DELAY = 500; // 停止输入后多久自动存盘（毫秒）
 
@@ -67,12 +64,12 @@ function applyContent(content: string): void {
   }, 50);
 }
 
-/** 加载 currentPath 指向的文件；无路径则显示示例。 */
+/** 加载 currentPath 指向的文件；无路径则给一篇空白的「未命名」新文档（可编辑、⌘S 另存为）。 */
 async function loadCurrent(): Promise<void> {
   if (!currentPath) {
-    applyContent(SAMPLE);
-    setStatus("示例文档（未打开文件）", "");
-    setTitle("Lithe");
+    applyContent("");
+    setStatus("未命名（新文档）", "⌘S 保存到本地");
+    setTitle("未命名 — Lithe");
     return;
   }
   try {
@@ -86,17 +83,24 @@ async function loadCurrent(): Promise<void> {
 }
 
 function scheduleSave(): void {
-  if (loading || !currentPath) return;
+  if (loading) return;
   if (!dirty) reflectDirty(true); // 仅在 false→true 翻转时刷标签圆点，避免每次按键重建标签栏
   dirty = true;
+  if (!currentPath) {
+    // 未命名新文档：没有磁盘位置，不自动写盘，等用户 ⌘S 选位置另存为。
+    setStatus("未命名（新文档）", "未保存 · ⌘S 保存到本地");
+    return;
+  }
   setStatus(basename(currentPath), "未保存…");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => void saveNow(), SAVE_DELAY);
 }
 
-/** 立即存盘。返回是否成功——切换文件时据此决定要不要中止（存盘失败不丢编辑）。 */
+/** 立即存盘。返回是否成功——切换文件时据此决定要不要中止（存盘失败不丢编辑）。
+ *  无路径（未命名新文档）→ 走「另存为」让用户选位置。 */
 async function saveNow(): Promise<boolean> {
-  if (!currentPath || !dirty) return true;
+  if (!currentPath) return saveAsNew();
+  if (!dirty) return true;
   const content = vditor.getValue();
   try {
     await invoke("write_file", { path: currentPath, content });
@@ -109,6 +113,57 @@ async function saveNow(): Promise<boolean> {
     setStatus(basename(currentPath), String(e));
     return false;
   }
+}
+
+/** 未命名新文档「另存为」：弹系统保存框选位置+文件名，写盘后采纳为当前文件
+ *  （建标签、让后端开始监听、此后自动保存）。用户取消或失败返回 false。 */
+async function saveAsNew(): Promise<boolean> {
+  const content = vditor.getValue();
+  let target: string | null;
+  try {
+    target = await save({
+      title: "保存到本地",
+      defaultPath: "未命名.md",
+      filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+    });
+  } catch (e) {
+    setStatus("未命名（新文档）", String(e));
+    return false;
+  }
+  if (!target) return false; // 用户取消
+  try {
+    await invoke("write_file", { path: target, content });
+  } catch (e) {
+    setStatus("未命名（新文档）", String(e));
+    return false;
+  }
+  currentPath = target; // 采纳新路径
+  lastWrittenContent = content;
+  dirty = false;
+  try {
+    await invoke("set_target_file", { path: target }); // 后端开始监听该文件
+  } catch (e) {
+    console.error("设置监听目标失败：", e);
+  }
+  await adoptNewFile(target); // workspace 建标签 + 带出所在文件夹
+  reflectDirty(false);
+  setStatus(basename(target), "已保存");
+  setTitle(`${basename(target)} — Lithe`);
+  return true;
+}
+
+/** 关窗时若有未保存改动的处理：
+ *  - 已有磁盘文件 → 静默存盘后关（本应用本就自动保存，无需打扰）。
+ *  - 未命名新文档 → 弹「保存/不保存/取消」（Word 式）。保存走另存为；取消则不关。 */
+async function handleUnsavedClose(win: ReturnType<typeof getCurrentWindow>): Promise<void> {
+  if (currentPath) {
+    if (await saveNow()) await win.destroy(); // 存盘失败则不关，避免丢内容
+    return;
+  }
+  const choice = await confirmUnsavedClose();
+  if (choice === "cancel") return; // 不关
+  if (choice === "save" && !(await saveNow())) return; // 取消了另存为对话框 → 不关
+  await win.destroy(); // 保存成功 或 不保存 → 关闭窗口
 }
 
 /** 切换当前文件：存旧 → 改后端 target → 载新。返回是否切换成功。
@@ -184,7 +239,10 @@ window.addEventListener("DOMContentLoaded", () => {
     cdn: "/vditor",
     cache: { enable: false },
     value: "",
-    toolbar: TOOLBAR,
+    toolbar: buildToolbar({
+      onToggleSidebar: () => document.body.classList.toggle("sidebar-collapsed"),
+      onSave: () => void saveNow(),
+    }),
     counter: { enable: true, type: "text" },
     outline: { enable: false, position: "left" },
     theme: dark ? "dark" : "classic",
@@ -213,22 +271,33 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   (window as unknown as { __vditor: Vditor }).__vditor = vditor;
 
-  // ⌘S / Ctrl+S 立即保存
+  // 快捷键：⌘S 存盘（新文档则另存为）/ ⌘N 开新空白文档窗口
   document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === "s") {
       e.preventDefault();
       dirty = true;
       void saveNow();
+    } else if (k === "n") {
+      e.preventDefault();
+      void openInNewWindow(null); // 空白新文档窗口
     }
   });
 
-  // 外部文件变动 → 实时刷新
-  void listen<string>("file-changed", (e) => handleExternalChange(e.payload));
-
-  // app 已在运行时，又双击了另一个 .md → 新开标签 + 切换 + 带出其文件夹
-  void listen<string>("open-file", async (e) => {
-    const path = e.payload;
-    await openFile(path);
-    await ensureFolderFor(path);
+  // 关窗前：有未保存改动则拦下处理（新文档弹保存确认，已存文件静默存盘）。
+  const appWindow = getCurrentWindow();
+  void appWindow.onCloseRequested((event) => {
+    if (!dirty) return; // 无未保存 → 正常关
+    event.preventDefault(); // 必须同步拦下，再异步处理
+    void handleUnsavedClose(appWindow);
   });
+
+  // 外部文件变动 → 实时刷新。payload 带 path，只认本窗口正在看的那份。
+  void listen<{ path: string; content: string }>("file-changed", (e) => {
+    if (e.payload.path !== currentPath) return;
+    handleExternalChange(e.payload.content);
+  });
+  // 注：app 运行时再从桌面双击文件，后端直接开新窗口（见 lib.rs RunEvent::Opened），
+  // 新窗口走 get_opened_file 取文件，故此处不再需要 "open-file" 事件监听。
 });

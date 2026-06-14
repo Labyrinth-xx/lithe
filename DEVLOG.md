@@ -1,5 +1,60 @@
 # DEVLOG — Lithe
 
+## 2026-06-13（夜）— 工具栏重排：文件夹/保存并入编辑工具栏
+
+### 完成内容
+- **保存 + 文件夹按钮并入 Vditor 编辑工具栏最左侧**（同一行：文件夹 → 保存 → ┃ → 编辑项）。`toolbar.ts` 改为 `buildToolbar({onToggleSidebar,onSave})`，用 Vditor `IMenuItem`（icon/className/tip/click）注入两个自定义按钮。
+- **侧栏默认收起**：`<body class="sidebar-collapsed">`；工具栏文件夹按钮点击切换侧栏显隐，按钮上小箭头（`.lithe-chevron`，CSS `transform-box:fill-box` 旋转 90°）作展开状态提示。
+- 撤掉上一轮的 `#topbar`/底部 `#save-btn`，顶部恢复纯 `#tabbar`；保存图标仍线条风。
+
+### 关键决策
+- **注入 Vditor 工具栏而非自建一行**：满足「文件夹、保存、编辑项同一行」诉求，且复用 Vditor 既有工具栏样式；经查 `vditor/dist/types/index.d.ts` 的 `IMenuItem` 确认支持自定义 icon+click，非臆测。
+
+## 2026-06-13（傍晚）— 关闭保存确认 + 保存按钮移位/换图标
+
+### 完成内容
+- **关窗未保存确认（Word 式）**：`onCloseRequested` 拦截关窗——已有磁盘文件 → 静默存盘后 `destroy`；未命名新文档 → 自建三按钮模态（保存/不保存/取消，新文件 `src/unsaved-dialog.ts`）。保存走另存为，取消另存为则不关。capabilities 加 `core:window:allow-destroy`。
+- **保存按钮移到左上角**：从底部状态栏移到新建的 `#topbar`（保存按钮 + 标签栏并排），背景/边框从 `#tabbar` 上移到 `#topbar`。
+- **保存图标换线条风**：去掉 💾 emoji，改用 stroke SVG（Feather save 风格，`currentColor` 跟随主题），与界面其他符号风格统一、更干净。
+
+### 关键决策
+- **关窗策略分流**：已存文件静默保存（本应用自动保存哲学，不打扰）；只有未命名新文档才弹确认（真正会丢内容的场景）。空白未编辑的新窗口 `dirty=false`，关窗不弹。
+- **三按钮自建模态**：系统 dialog 插件只有两按钮，无法做「保存/不保存/取消」，故自建轻量模态。
+
+## 2026-06-13（下午）— 多窗口体验打磨 + 新建/另存为
+
+### 完成内容
+- **修拖出 bug**：原用 HTML5 拖放，拖到桌面被 macOS 当文本生成 `.textclipping`。改为纯指针拖拽（pointerdown/move/up + setPointerCapture），不接入系统拖放，不再污染桌面；拖动期窗口内显示跟随光标的虚影（出窗口不可见＝webview 框架局限，已如实告知用户）。
+- **拖出窗口在松手处打开**：`open_in_new_window` 加 x/y 逻辑屏幕坐标，`WebviewWindowBuilder.position` 在松手点开窗（负坐标钳为 0）；右键入口与 ⌘N 仍居中。
+- **新建文档 + 另存为（Word 式）**：无路径文档现为空白可编辑；`scheduleSave` 对无路径文档不自动写盘，`saveNow` 无路径时走 `saveAsNew`（plugin-dialog `save` 选位置）→ 写盘后采纳路径、建标签、开监听、此后自动保存。capabilities 加 `dialog:allow-save`。
+- **状态栏加「💾 保存」按钮**（点 = saveNow，新文档触发另存为）。
+- **去掉 ⌘W**（用户暂不需要），连带删除 workspace 的 closeActiveTab/hasActiveTab/closingTab。
+
+### 关键决策 / 说明
+- **保存策略**：已存盘文件 = 停输入 500ms 自动保存（准实时）；未命名新文档 = 不自动存，需手动 ⌘S/按钮选位置另存为后才进入自动保存（同 Word）。
+- **真·浏览器式拖拽虚影做不到**：webview 内容无法绘制到窗口外，跨桌面实时窗口预览需原生代码，Tauri 不支持；折中＝窗口内虚影 + 松手处开窗。
+
+## 2026-06-13 — 多窗口：标签拖出 / 新开窗口
+
+### 完成内容
+- 实现「同时看两个文档」= 多独立窗口（用户明确偏好独立窗口自由摆桌面，而非应用内分屏）。三个入口：标签**拖出**窗口外 / 右键**「在新窗口打开」** / **⌘N** 开新空窗口；附带 **⌘W** 关当前标签。
+- 后端从「单文件监听」升级为「按窗口管理」：`AppState` 换成 `watched`/`pending`/`next_window`；`set_target_file`/`get_opened_file` 按 `window.label()` 取键；新增 `open_in_new_window` 命令（`WebviewWindowBuilder` 建窗，label `doc-N`）；监听线程改盯所有窗口文件的并集、通知载荷带 `path`；窗口关闭清理条目；`RunEvent::Opened` 改只发聚焦窗口。
+- 前端：新建 `src/windows.ts`（开窗 + 拖拽窗外判定）；`tab-view.ts` 加 draggable/dragend/右键单项菜单；`workspace.ts` 加 `tearOutTab`（存盘→开窗→移除，唯一标签 no-op）；`main.ts` 的 `file-changed` 按 `payload.path === currentPath` 过滤，只刷新本窗口在看的文件。
+- 配置：capabilities 加窗口创建/查询/关闭权限，`windows` glob 扩到 `["main","doc-*"]`。
+- **桌面双击分流**（追加）：app 运行中再从 Finder 双击 .md → 开**新窗口**（而非在现有窗口加标签），冷启动首个文件仍用主窗口；侧边栏点文件仍是当前窗口加标签。靠 `AppState.main_ready`（主窗口 get_opened_file 取过初始文件即置位）区分冷启动与运行中；抽 `spawn_doc_window` 给命令与 `RunEvent::Opened` 共用；删掉前端已无人 emit 的 `open-file` 监听。
+
+### 关键决策
+- **多窗口而非分屏**：每个 Tauri 窗口本就是同一前端的独立实例，复用现有单编辑器模型，无需重构成分屏多实例；也契合用户「窗口自由摆放」诉求。
+- **拖出 = 移动语义**：拖出后原窗口移除该标签；唯一标签拖出视为 no-op（它本就独占一窗）。
+- **拖出前先存盘**：拖出当前未存盘文件时先 saveNow，避免新窗口从磁盘读到旧内容的竞态。
+- **⌘W 关最后标签显示示例、不自动关窗**；无标签时放行让系统原生关窗。
+- **file-changed 载荷带 path**：多窗口下广播改动，各窗口按自己 currentPath 过滤，杜绝「A 的改动套到 B」串味。
+
+### 遗留问题 / 下次继续
+- 拖出边界检测靠屏幕坐标×缩放比换算，极端多显示器/缩放场景可能需微调阈值（右键 + ⌘N 为可靠兜底，功能不缺）。
+- 两个窗口打开**同一文件**的并发编辑冲突未专门处理，沿用现有 conflict 弹窗。
+- 额外标签快捷键（⌘1~9 跳转 / Ctrl+Tab 循环 / 拖动重排）本期未做，留待后续。
+
 ## 2026-06-12 — 改名 Lithe + 作品集门面
 
 ### 完成内容

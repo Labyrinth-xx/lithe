@@ -60,6 +60,16 @@ body.sidebar-collapsed #workspace {
   border-bottom: 1px solid #e0e0e0;
   user-select: none;
 }
+
+/* 工具栏「文件夹」按钮上的小箭头：侧栏展开时旋转 90° 作状态提示。 */
+.lithe-chevron {
+  transition: transform 0.15s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+body:not(.sidebar-collapsed) .lithe-chevron {
+  transform: rotate(90deg);
+}
 .tab {
   display: flex;
   align-items: center;
@@ -80,6 +90,10 @@ body.sidebar-collapsed #workspace {
 .tab:hover {
   background: rgba(127, 127, 127, 0.1);
 }
+.tab.dragging {
+  opacity: 0.6;
+  cursor: grabbing;
+}
 .tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -96,6 +110,34 @@ body.sidebar-collapsed #workspace {
 }
 .tab-close:hover {
   background: rgba(127, 127, 127, 0.25);
+}
+
+/* 标签右键菜单（单项：在新窗口打开） */
+.tab-menu {
+  position: fixed;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  user-select: none;
+}
+.tab-menu-item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.tab-menu-item:hover {
+  background: rgba(74, 144, 217, 0.12);
 }
 
 /* ===== 侧边栏文件树 ===== */
@@ -204,6 +246,17 @@ body.dark .tab.active {
   background: #1e1e1e;
   color: #eee;
 }
+body.dark .tab-menu {
+  background: #2a2a2a;
+  border-color: #444;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+body.dark .tab-menu-item {
+  color: #ddd;
+}
+body.dark .tab-menu-item:hover {
+  background: rgba(74, 144, 217, 0.3);
+}
 body.dark #sidebar {
   background: #232323;
   border-right-color: #3a3a3a;
@@ -248,6 +301,100 @@ body.dark .tree-file.active {
 
 #theme-toggle:hover {
   background: rgba(127, 127, 127, 0.18);
+}
+
+/* 未保存关闭确认弹窗 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-box {
+  min-width: 300px;
+  max-width: 80vw;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  padding: 20px;
+}
+.modal-msg {
+  font-size: 13px;
+  color: #222;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.modal-btn {
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  color: #333;
+}
+.modal-btn:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+.modal-btn.primary {
+  background: #4a90d9;
+  border-color: #4a90d9;
+  color: #fff;
+}
+.modal-btn.primary:hover {
+  background: #3d7fc4;
+}
+body.dark .modal-box {
+  background: #2a2a2a;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+body.dark .modal-msg {
+  color: #eee;
+}
+body.dark .modal-btn {
+  background: #333;
+  border-color: #444;
+  color: #ddd;
+}
+body.dark .modal-btn:hover {
+  background: #3c3c3c;
+}
+body.dark .modal-btn.primary {
+  background: #4a90d9;
+  border-color: #4a90d9;
+  color: #fff;
+}
+
+/* 拖出标签时跟随光标的虚影（仅窗口内可见——出了窗口边缘 webview 画不到，属框架局限） */
+.tab-ghost {
+  position: fixed;
+  z-index: 2000;
+  pointer-events: none;
+  transform: translate(8px, 8px);
+  background: #fff;
+  border: 1px solid #4a90d9;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #222;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.dark .tab-ghost {
+  background: #2a2a2a;
+  color: #eee;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 #status-state {
