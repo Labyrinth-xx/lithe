@@ -6,6 +6,12 @@ Leave a `.md` open in Lithe while **Claude Code, Cursor, or `git` rewrites the s
 
 Native macOS, Typora-style inline WYSIWYG, ~23 MB, fully offline.
 
+### [⬇ Download for macOS (Apple Silicon)](https://github.com/Labyrinth-xx/lithe/releases/latest)
+
+[![Latest release](https://img.shields.io/github/v/release/Labyrinth-xx/lithe?label=release&logo=apple)](https://github.com/Labyrinth-xx/lithe/releases/latest) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> Unsigned build — on first launch, **right-click Lithe → Open → Open** (see [First launch](#download--run) below). Apple Silicon only.
+
 ![Lithe — inline WYSIWYG Markdown editing on macOS](docs/screenshots/editor.png)
 
 ---
@@ -61,20 +67,24 @@ If you only need a static preview, your IDE already does that. Lithe is for the 
 
 Key files: [`src-tauri/src/lib.rs`](src-tauri/src/lib.rs) (Rust I/O + file watcher), [`src/main.ts`](src/main.ts) (editor orchestration), [`src/sync-logic.ts`](src/sync-logic.ts) (pure conflict-resolution logic).
 
-## Build & run
+## Download & run
+
+**Just want to use it?** Grab the latest `.dmg` from the [**Releases page**](https://github.com/Labyrinth-xx/lithe/releases/latest) (macOS, **Apple Silicon** only), open it, and drag Lithe into Applications.
+
+**First launch (unsigned build):** Lithe isn't code-signed yet, so macOS Gatekeeper will warn on first open. Right-click `Lithe.app` → **Open** → **Open** once. On macOS Sequoia (15+) the dialog may only show "Done" — then go to **System Settings → Privacy & Security → Open Anyway** and launch again. Subsequent launches are normal. (Terminal alternative: `xattr -dr com.apple.quarantine /Applications/Lithe.app`.)
+
+## Build from source
 
 Requirements: macOS, Node 18+, and the [Rust toolchain](https://www.rust-lang.org/tools/install).
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Labyrinth-xx/lithe.git
 cd lithe
 npm install
 
 npm run tauri dev      # run in development
 npm run tauri build    # produce Lithe.app + a .dmg under src-tauri/target/release/bundle/
 ```
-
-**First launch (unsigned build):** Lithe isn't code-signed yet, so macOS Gatekeeper will warn on first open. Right-click `Lithe.app` → **Open** → **Open** once (or System Settings → Privacy & Security → **Open Anyway**). Subsequent launches are normal.
 
 ## Status
 
