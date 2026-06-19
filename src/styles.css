@@ -1,7 +1,7 @@
 :root {
   --statusbar-h: 28px;
   --tabbar-h: 36px;
-  --sidebar-w: 240px;
+  --folder-popover-w: 240px;
   color-scheme: light dark;
 }
 
@@ -134,7 +134,7 @@ body {
   left: 0; /* 贴最左边；top 由 JS 设到工具栏底部 */
   bottom: var(--statusbar-h);
   z-index: 1500;
-  width: var(--sidebar-w);
+  width: var(--folder-popover-w);
   display: flex;
   flex-direction: column;
   background: #fafafa;

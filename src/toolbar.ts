@@ -21,9 +21,7 @@ export interface ToolbarHandlers {
   onSave: () => void;
 }
 
-// 注意：Vditor 默认给工具栏 svg 强制「实心填充 + stroke 归零」。这三个自定义图标走描边（空心）
-// 风格，所以在 styles.css 针对 .lithe-folder-toggle/.lithe-save-btn/.lithe-outline-btn 改回
-// fill:none + stroke，使其呈现细线观感、与其余按钮一致。
+// 这三个图标走描边（空心）风格——描边样式见 styles.css 的 .lithe-*-btn svg 规则。
 // 文件夹图标：描边文件夹。
 const FOLDER_ICON = `<svg viewBox="0 0 24 24"><path d="M3 6.5a1 1 0 0 1 1-1h4.2l1.6 1.8H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>`;
 
