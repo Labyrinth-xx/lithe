@@ -18,7 +18,7 @@
 ## 目录结构
 
 ```
-markdown-reader/
+lithe/
 ├─ src/                    # 前端
 │  ├─ main.ts              # 编排：初始化编辑器/加载文件/切文件/自动存盘/外部刷新/快捷键/主题接线
 │  ├─ workspace.ts         # 编排层：串起文件树 ↔ 标签 ↔ main（openFile/切换/关闭/选文件夹/dirty 镜像）

@@ -55,7 +55,7 @@ Requirements: macOS, Node 18+, and the [Rust toolchain](https://www.rust-lang.or
 
 ```bash
 git clone <repo-url>
-cd markdown-reader
+cd lithe
 npm install
 
 npm run tauri dev      # run in development
