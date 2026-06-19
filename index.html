@@ -7,17 +7,17 @@
     <title>Lithe</title>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
-  <body class="sidebar-collapsed">
+  <body>
     <div id="tabbar"></div>
     <div id="workspace">
-      <aside id="sidebar">
-        <div id="sidebar-head">
-          <button id="pick-folder" type="button" title="选择一个文件夹">📁 选择文件夹</button>
-          <button id="sidebar-toggle" type="button" title="折叠/展开侧栏">⟨</button>
-        </div>
-        <div id="tree"></div>
-      </aside>
       <div id="editor"></div>
+    </div>
+    <!-- 文件夹浮窗：由顶部文件夹按钮唤出，定位贴在该按钮下方（见 workspace.ts） -->
+    <div id="folder-popover" hidden>
+      <div id="folder-head">
+        <button id="pick-folder" type="button" title="选择一个文件夹">📁 选择文件夹</button>
+      </div>
+      <div id="tree"></div>
     </div>
     <div id="statusbar">
       <span id="status-file">未打开文件</span>

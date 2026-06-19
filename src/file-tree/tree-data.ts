@@ -4,7 +4,7 @@
 //   1. 删 src/file-tree/ 整个目录
 //   2. workspace.ts 去掉 TreeState 相关编排
 //   3. lib.rs 删 read_dir_tree/build_node/TreeNode；capabilities 删 dialog:allow-open
-//   4. index.html 删 #sidebar；styles.css 删 #sidebar/#tree 规则
+//   4. index.html 删 #folder-popover；styles.css 删 #folder-popover/#tree 规则
 
 export interface TreeNode {
   readonly name: string;

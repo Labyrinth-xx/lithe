@@ -14,6 +14,7 @@ import {
   ensureFolderFor,
   adoptNewFile,
   reflectDirty,
+  toggleFolderPopover,
 } from "./workspace";
 import { openInNewWindow } from "./windows";
 import {
@@ -240,11 +241,11 @@ window.addEventListener("DOMContentLoaded", () => {
     cache: { enable: false },
     value: "",
     toolbar: buildToolbar({
-      onToggleSidebar: () => document.body.classList.toggle("sidebar-collapsed"),
+      onToggleFolder: () => toggleFolderPopover(),
       onSave: () => void saveNow(),
     }),
     counter: { enable: true, type: "text" },
-    outline: { enable: false, position: "left" },
+    outline: { enable: false, position: "right" },
     theme: dark ? "dark" : "classic",
     preview: {
       hljs: { enable: true, lineNumber: false, style: dark ? "github-dark" : "github" },

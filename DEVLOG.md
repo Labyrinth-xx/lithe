@@ -1,5 +1,21 @@
 # DEVLOG — Lithe
 
+## 2026-06-19 — 工具栏交互打磨：悬浮提示 + 图标重绘 + 文件夹抽屉 + 大纲靠右
+
+### 完成内容
+- **悬浮提示修复**：Vditor 工具栏提示默认朝上弹，被顶部标签栏 + `overflow:hidden` 裁掉，鼠标悬浮看不到按钮名。改 CSS 让所有工具栏提示统一朝下弹（`.vditor-toolbar .vditor-tooltipped::after/::before`）。
+- **文件夹/保存图标重绘**：原图标被 Vditor 的 `fill:currentColor;stroke-width:0` 强填成黑团。改为描边（空心）风格——SVG 用 `fill:none`，并加针对性 CSS（`.lithe-folder-toggle/.lithe-save-btn/.lithe-outline-btn svg`）改回 `stroke:currentColor` 细线，和其余按钮观感一致。
+- **侧栏 → 文件夹浮窗（左侧抽屉）**：去掉常驻左栏，文件树改为由文件夹按钮唤出的左侧边缘抽屉（贴最左、工具栏下方到状态栏上方）。选中文件即开档并收起；点窗外/再点按钮/改窗口大小都收起。`#workspace` 改单列、编辑区铺满。
+- **大纲靠右**：大纲按钮 `float:right` 顶到工具栏最右边缘；换成层级线条自绘图标（原为 Vditor 的 align-center，看着像“居中排版”）；面板改从右侧打开（`outline.position:"right"`）；保留 `name:"outline"` 沿用内置开关行为。
+
+### 关键决策
+- 用 object 覆盖内置 `outline` 的 icon/className（`mergeToolbar` 的 `Object.assign` 合并）而非全自定义，保留内置“开关大纲面板”逻辑、不用自己重接。
+- 文件夹定位用 JS 设 `top`（按钮底边）+ CSS 固定 `left:0/bottom`，保证“从最左侧打开”且不依赖固定工具栏高度。
+
+### 遗留问题 / 下次继续
+- `toggleFolderPopover` 已加 `popoverEl` 空值守卫（按钮可能在 Vditor `after` 回调前被点）。
+- 次要：`mousedown/resize` 监听用匿名函数、无清理（当前 `initWorkspace` 只调一次，无害）。
+
 ## 2026-06-13（夜）— 工具栏重排：文件夹/保存并入编辑工具栏
 
 ### 完成内容

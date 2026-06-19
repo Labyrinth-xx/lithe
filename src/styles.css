@@ -26,15 +26,12 @@ body {
   height: 100vh;
 }
 
-/* 工作区两列：侧栏 + 编辑器。min-height:0 让内部可滚动、不撑破网格。 */
+/* 工作区单列：编辑器铺满（文件树改为浮窗，不再占据固定栏位）。 */
 #workspace {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-columns: 1fr;
   min-height: 0;
   overflow: hidden;
-}
-body.sidebar-collapsed #workspace {
-  grid-template-columns: 0 1fr;
 }
 
 #editor {
@@ -61,15 +58,6 @@ body.sidebar-collapsed #workspace {
   user-select: none;
 }
 
-/* 工具栏「文件夹」按钮上的小箭头：侧栏展开时旋转 90° 作状态提示。 */
-.lithe-chevron {
-  transition: transform 0.15s ease;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-body:not(.sidebar-collapsed) .lithe-chevron {
-  transform: rotate(90deg);
-}
 .tab {
   display: flex;
   align-items: center;
@@ -140,15 +128,25 @@ body:not(.sidebar-collapsed) .lithe-chevron {
   background: rgba(74, 144, 217, 0.12);
 }
 
-/* ===== 侧边栏文件树 ===== */
-#sidebar {
+/* ===== 文件夹浮窗（左侧抽屉：贴窗口最左边，从工具栏下方铺到状态栏上方） ===== */
+#folder-popover {
+  position: fixed;
+  left: 0; /* 贴最左边；top 由 JS 设到工具栏底部 */
+  bottom: var(--statusbar-h);
+  z-index: 1500;
+  width: var(--sidebar-w);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   background: #fafafa;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid #d0d0d0;
+  border-top: 1px solid #e0e0e0;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
 }
-#sidebar-head {
+#folder-popover[hidden] {
+  display: none; /* 覆盖上面的 display:flex，hidden 才能真正藏起来 */
+}
+#folder-head {
   display: flex;
   gap: 6px;
   align-items: center;
@@ -170,23 +168,28 @@ body:not(.sidebar-collapsed) .lithe-chevron {
 #pick-folder:hover {
   background: #f0f0f0;
 }
-#sidebar-toggle {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #888;
-}
-#sidebar-toggle:hover {
-  background: rgba(127, 127, 127, 0.18);
-}
 #tree {
   flex: 1 1 auto;
   overflow: auto;
   padding: 4px 0;
   font-size: 13px;
+}
+
+/* 大纲按钮顶到工具栏最右边缘（Vditor 工具栏项默认 float:left，这里单独让它 float:right）。 */
+.vditor-toolbar .lithe-outline-btn {
+  float: right;
+}
+
+/* 三个自定义按钮（文件夹/保存/大纲）走描边空心风格：Vditor 默认把工具栏 svg 强制
+   实心填充 + stroke 归零，这里针对性改回 fill:none + 细描边，呈现细线观感。 */
+.lithe-folder-toggle svg,
+.lithe-save-btn svg,
+.lithe-outline-btn svg {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .tree-row {
   padding-top: 3px;
@@ -257,11 +260,12 @@ body.dark .tab-menu-item {
 body.dark .tab-menu-item:hover {
   background: rgba(74, 144, 217, 0.3);
 }
-body.dark #sidebar {
+body.dark #folder-popover {
   background: #232323;
-  border-right-color: #3a3a3a;
+  border-color: #444;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
-body.dark #sidebar-head {
+body.dark #folder-head {
   border-bottom-color: #3a3a3a;
 }
 body.dark #pick-folder {
@@ -404,6 +408,24 @@ body.dark .tab-ghost {
 #status-version {
   opacity: 0.55;
   font-variant-numeric: tabular-nums;
+}
+
+/* 工具栏按钮悬浮提示：Vditor 默认把提示气泡朝上弹（tooltipped__n / __ne），
+   但工具栏紧贴窗口顶部，朝上的气泡会被上方标签栏 + overflow:hidden 整个裁掉，
+   导致鼠标放上去看不到按钮名称。这里统一改成朝下弹（落进编辑区，空间充足）。
+   只动纵向定位，保留各按钮原有的横向对齐，避免左右越界。 */
+.vditor-toolbar .vditor-tooltipped::after {
+  top: 100%;
+  bottom: auto;
+  margin-top: 5px;
+  margin-bottom: 0;
+}
+.vditor-toolbar .vditor-tooltipped::before {
+  top: auto;
+  bottom: -5px;
+  margin-top: 0;
+  border-top-color: transparent;
+  border-bottom-color: #3b3e43;
 }
 
 /* IR 即时渲染编辑区：确保标题有清晰的字号层级（兜底，防止某些资源未生效时标题变平） */

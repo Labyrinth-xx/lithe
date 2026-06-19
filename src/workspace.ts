@@ -6,7 +6,7 @@
 //   1. 删 src/workspace.ts、src/tabs/、src/file-tree/
 //   2. main.ts 去掉 workspace import 与 init/openFile/ensureFolderFor 调用，
 //      还原 open-file 监听与 after 启动逻辑为「直接 setValue + loadCurrent」
-//   3. index.html 还原为只有 #editor + #statusbar；styles.css 删 #tabbar/#sidebar/#tree/.tab/.tree-* 规则
+//   3. index.html 还原为只有 #editor + #statusbar；styles.css 删 #tabbar/#folder-popover/#tree/.tab/.tree-* 规则
 //   4. lib.rs 删 set_target_file/read_dir_tree；Cargo.toml/capabilities/package.json 删 dialog 依赖
 
 import { invoke } from "@tauri-apps/api/core";
@@ -44,6 +44,7 @@ export interface WorkspaceBridge {
 let bridge: WorkspaceBridge;
 let tabbarEl: HTMLElement;
 let treeEl: HTMLElement;
+let popoverEl: HTMLElement;
 let tabs: TabsState = EMPTY_TABS;
 let tree: TreeState = EMPTY_TREE;
 
@@ -66,23 +67,48 @@ function renderAllTree(): void {
   });
 }
 
-/** 启动：拿到 bridge + 容器，绑定「选择文件夹」「折叠侧栏」按钮，首帧渲染。 */
+/** 启动：拿到 bridge + 容器，绑定「选择文件夹」按钮 + 浮窗外点关闭，首帧渲染。 */
 export function initWorkspace(b: WorkspaceBridge): void {
   bridge = b;
   tabbarEl = document.querySelector<HTMLElement>("#tabbar")!;
   treeEl = document.querySelector<HTMLElement>("#tree")!;
+  popoverEl = document.querySelector<HTMLElement>("#folder-popover")!;
 
   document
     .querySelector<HTMLButtonElement>("#pick-folder")
     ?.addEventListener("click", () => void pickFolder());
-  document
-    .querySelector<HTMLButtonElement>("#sidebar-toggle")
-    ?.addEventListener("click", () =>
-      document.body.classList.toggle("sidebar-collapsed")
-    );
+
+  // 点浮窗外（且不是文件夹按钮——它由 toggle 自己处理）→ 收起浮窗。
+  document.addEventListener("mousedown", (e) => {
+    if (popoverEl.hidden) return;
+    const t = e.target as HTMLElement;
+    if (popoverEl.contains(t) || t.closest(".lithe-folder-toggle")) return;
+    closeFolderPopover();
+  });
+  // 窗口尺寸变了浮窗锚点会失准，直接收起更稳妥。
+  window.addEventListener("resize", () => closeFolderPopover());
 
   renderAllTabs();
   renderAllTree();
+}
+
+/** 顶部文件夹按钮：开关左侧抽屉式浮窗（贴窗口最左边，从工具栏下方一直到状态栏上方）。
+ *  只动态设 top（紧贴工具栏底部）；left=0、bottom 由 CSS 固定，保证“从最左侧打开”。 */
+export function toggleFolderPopover(): void {
+  if (!popoverEl) return; // initWorkspace 尚未跑完（按钮在 Vditor after 回调前就可点）→ 忽略
+  if (popoverEl.hidden) {
+    const rect = document
+      .querySelector<HTMLElement>(".lithe-folder-toggle")
+      ?.getBoundingClientRect();
+    if (rect) popoverEl.style.top = `${Math.round(rect.bottom)}px`;
+    popoverEl.hidden = false;
+  } else {
+    closeFolderPopover();
+  }
+}
+
+function closeFolderPopover(): void {
+  popoverEl.hidden = true;
 }
 
 /** 打开（或激活）一个文件：先切文件（存旧→载新），成功后再建标签 + 高亮。
@@ -94,6 +120,7 @@ export async function openFile(path: string): Promise<void> {
   tabs = addTab(tabs, path);
   renderAllTabs();
   renderAllTree();
+  closeFolderPopover(); // 选完文件即收起浮窗（阅读流：弹出→挑文件→消失）
 }
 
 /** 未命名新文档「另存为」成功后：内容已在编辑器、已写盘，这里只补建标签 + 高亮 + 带出文件夹，
