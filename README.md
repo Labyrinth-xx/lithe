@@ -33,6 +33,7 @@ The result: watch your AI agent rewrite a document live, or keep editing while i
 - **Native & light.** Built on Tauri (Rust shell + system WebView), not Electron. ~23 MB, instant launch, no CDN calls, no telemetry.
 - **Typora-style WYSIWYG.** Vditor IR mode renders Markdown inline as you type — one pane, no split preview.
 - **Stays out of the way.** Clean toolbar with hover tooltips, a folder browser that pops out only when you want it, and a document outline a click away.
+- **One-click Word export.** Turn the open document into a `.docx` locally via [pandoc](https://pandoc.org) — for the colleague or the report that needs Word. Offline, no account, no copy-paste reformatting.
 
 ## When Lithe is a good fit
 
@@ -41,6 +42,7 @@ Reach for Lithe when you need to:
 - **Watch an AI agent edit Markdown live.** Keep a doc open while Claude Code, Cursor, Aider, Windsurf, or any agent rewrites it on disk — changes appear instantly, with no manual reload and no lost edits.
 - **Open a file that something else owns.** A `.md` written by `git`, a build script, a notes/RAG pipeline, or another editor — Lithe won't lock it or silently overwrite outside changes.
 - **Read & edit Markdown natively on macOS, offline.** A Typora-style single-pane WYSIWYG without Electron bloat, accounts, sign-in, or telemetry.
+- **Hand AI-drafted Markdown to people who need Word.** Draft with your agent in Markdown, then **one-click export to `.docx`** when a colleague — or an upward report — needs a Word file. No manual reformatting, no leaving the editor.
 
 If you only need a static preview, your IDE already does that. Lithe is for the case where the **same file is edited from two sides at once** — a human and an automated tool — and neither should clobber the other.
 
