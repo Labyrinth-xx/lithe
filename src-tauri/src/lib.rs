@@ -66,6 +66,65 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| format!("保存失败：{e}"))
 }
 
+/// 找 pandoc 可执行文件。要害：Finder 启动的 GUI App 不继承 shell 的 PATH，
+/// `Command::new("pandoc")` 会 NotFound 即使已 `brew install pandoc`。
+/// 故先显式探测 Homebrew 常见安装路径（能 exists() 验证），都没有再退回裸名
+/// 交给 PATH 解析（开发态 / 已配 PATH 时命中；仍找不到则在 spawn 处按 NotFound 处理）。
+fn pandoc_path() -> String {
+    for c in ["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"] {
+        if Path::new(c).exists() {
+            return c.to_string();
+        }
+    }
+    "pandoc".to_string()
+}
+
+/// 用 pandoc 把当前 markdown 转成 .docx 导出。pandoc 是独立命令行程序，
+/// 装好后本命令直接以子进程调用它——不联网、不依赖 agent。
+/// markdown 经 stdin 喂入（不落临时文件），`-o out_path` 直接产出文件。
+/// pandoc 不存在 → Err("PANDOC_NOT_FOUND")（前端据此提示 brew install）；
+/// 转换非零退出 → Err(stderr)。
+/// 注：本轮用 Word 默认样式；将来要套上报模板，加 `--reference-doc=<模板.docx>` 即可。
+#[tauri::command]
+fn export_docx(markdown: String, out_path: String) -> Result<(), String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let pandoc = pandoc_path();
+    let mut child = Command::new(&pandoc)
+        .args(["-f", "markdown", "-t", "docx", "-o", &out_path])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                "PANDOC_NOT_FOUND".to_string()
+            } else {
+                format!("启动 pandoc 失败：{e}")
+            }
+        })?;
+
+    // 把 markdown 写进 pandoc stdin，写完 drop 句柄触发 EOF。
+    child
+        .stdin
+        .take()
+        .ok_or("无法获取 pandoc stdin")?
+        .write_all(markdown.as_bytes())
+        .map_err(|e| format!("写入 pandoc 失败：{e}"))?;
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("等待 pandoc 失败：{e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "pandoc 转换失败：{}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(())
+}
+
 /// 前端经侧边栏/标签切换文件时，必须同步更新本窗口在后端的 watched 条目，
 /// 否则后台轮询仍盯着旧文件、新文件的外部改动收不到。
 /// path 为 null（关掉最后一个标签）时移除本窗口条目，该文件若无其他窗口在看即停止轮询。
@@ -315,7 +374,8 @@ pub fn run() {
             write_file,
             set_target_file,
             open_in_new_window,
-            read_dir_tree
+            read_dir_tree,
+            export_docx
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

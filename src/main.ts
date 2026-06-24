@@ -8,7 +8,7 @@ import { decideExternalChange } from "./sync-logic";
 import { confirmUnsavedClose } from "./unsaved-dialog";
 import { buildToolbar } from "./toolbar";
 import { initReadingMode, toggleReadingMode, refreshIfReading } from "./reading-mode";
-import { basename } from "./utils";
+import { basename, parentDir } from "./utils";
 import {
   initWorkspace,
   openFile,
@@ -37,11 +37,16 @@ let loading = false; // setValue 期间为 true，避免把“加载”误当成
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let lastWrittenContent: string | null = null; // 本程序最后写盘/载入的内容，用于回声抑制
 
-function setStatus(file: string, state: string): void {
-  const fileEl = document.querySelector<HTMLElement>("#status-file");
+// 文档名已不在状态栏显示（标签栏已有），file 形参仅保留语义/避免改动 9 处调用点。
+function setStatus(_file: string, state: string): void {
   const stateEl = document.querySelector<HTMLElement>("#status-state");
-  if (fileEl) fileEl.textContent = file;
   if (stateEl) stateEl.textContent = state;
+}
+
+/** 字数显示在状态栏右下角。len 由 Vditor 的 text 计数器算好（已正确处理中文）。 */
+function setWordCount(len: number): void {
+  const el = document.querySelector<HTMLElement>("#status-wordcount");
+  if (el) el.textContent = `${len} 字`;
 }
 
 function setTitle(name: string): void {
@@ -155,6 +160,40 @@ async function saveAsNew(): Promise<boolean> {
   return true;
 }
 
+/** 导出 Word：把当前编辑器内容（含未保存改动，导出「所见」）经后端 pandoc 转成 .docx。
+ *  默认输出到同目录同名 .docx；未命名新文档默认「未命名.docx」。pandoc 未安装时友好提示。 */
+async function exportWord(): Promise<void> {
+  const markdown = vditor.getValue();
+  const defaultPath = currentPath
+    ? `${parentDir(currentPath)}/${basename(currentPath).replace(/\.(md|markdown)$/i, "")}.docx`
+    : "未命名.docx";
+  let outPath: string | null;
+  try {
+    outPath = await save({
+      title: "导出 Word",
+      defaultPath,
+      filters: [{ name: "Word", extensions: ["docx"] }],
+    });
+  } catch (e) {
+    setStatus("", `导出失败：${e}`);
+    return;
+  }
+  if (!outPath) return; // 用户取消
+  try {
+    await invoke("export_docx", { markdown, outPath });
+    setStatus("", "已导出 Word");
+  } catch (e) {
+    if (String(e).includes("PANDOC_NOT_FOUND")) {
+      window.alert(
+        "导出 Word 需要 pandoc。请在终端运行：\n\n    brew install pandoc\n\n装好后再点导出即可（只需装一次）。"
+      );
+      setStatus("", "导出需先安装 pandoc");
+    } else {
+      setStatus("", `导出失败：${e}`);
+    }
+  }
+}
+
 /** 关窗时若有未保存改动的处理：
  *  - 已有磁盘文件 → 静默存盘后关（本应用本就自动保存，无需打扰）。
  *  - 未命名新文档 → 弹「保存/不保存/取消」（Word 式）。保存走另存为；取消则不关。 */
@@ -245,9 +284,10 @@ window.addEventListener("DOMContentLoaded", () => {
     toolbar: buildToolbar({
       onToggleFolder: () => toggleFolderPopover(),
       onSave: () => void saveNow(),
+      onExportWord: () => void exportWord(),
       onToggleReadMode: () => toggleReadingMode(),
     }),
-    counter: { enable: true, type: "text" },
+    counter: { enable: true, type: "text", after: (len: number) => setWordCount(len) },
     outline: { enable: false, position: "right" },
     theme: dark ? "dark" : "classic",
     preview: {

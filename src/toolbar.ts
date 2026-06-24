@@ -19,6 +19,8 @@ export interface ToolbarHandlers {
   onToggleFolder: () => void;
   /** 保存按钮：存盘（新文档触发另存为）。 */
   onSave: () => void;
+  /** 导出 Word 按钮：把当前文档经 pandoc 转成 .docx。 */
+  onExportWord: () => void;
   /** 阅读/编辑切换按钮：在只读阅读视图与 ir 编辑器之间切换。 */
   onToggleReadMode: () => void;
 }
@@ -29,6 +31,9 @@ const FOLDER_ICON = `<svg viewBox="0 0 24 24"><path d="M3 6.5a1 1 0 0 1 1-1h4.2l
 
 // 保存图标：描边软盘（Feather save）。
 const SAVE_ICON = `<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
+
+// 导出 Word 图标：描边文档 + 向下箭头，读作“把文档导出/下载成 Word”。
+const EXPORT_ICON = `<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>`;
 
 // 大纲图标：描边的层级线条（两条满宽 + 两条缩进），读作“文档大纲/目录结构”——
 // 替换 Vditor 内置 outline 用的 align-center 图标（那个看起来像“居中排版”）。
@@ -94,6 +99,14 @@ export function buildToolbar(h: ToolbarHandlers): ToolbarItem[] {
       tipPosition: "s",
       icon: SAVE_ICON,
       click: () => h.onSave(),
+    },
+    {
+      name: "lithe-export",
+      className: "lithe-export-btn",
+      tip: "导出 Word",
+      tipPosition: "s",
+      icon: EXPORT_ICON,
+      click: () => h.onExportWord(),
     },
     "|",
     // 阅读/编辑切换：float:right 顶到工具栏最右边缘。多个 float:right 元素里，

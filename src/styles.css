@@ -210,6 +210,7 @@ body.dark #reader {
    实心填充 + stroke 归零，这里针对性改回 fill:none + 细描边，呈现细线观感。 */
 .lithe-folder-toggle svg,
 .lithe-save-btn svg,
+.lithe-export-btn svg,
 .lithe-outline-btn svg,
 .lithe-read-mode-btn svg {
   fill: none !important;
@@ -314,10 +315,16 @@ body.dark .tree-file.active {
   color: #fff;
 }
 
+#statusbar-left,
 #statusbar-right {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* 字数已挪到状态栏右下角（#status-wordcount），隐藏 Vditor 自带的编辑器内计数器，避免重复。 */
+.vditor-counter {
+  display: none !important;
 }
 
 #theme-toggle {

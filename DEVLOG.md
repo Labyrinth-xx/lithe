@@ -1,5 +1,24 @@
 # DEVLOG — Lithe
 
+## 2026-06-24 — md 一键导出 Word（pandoc）+ 状态栏重排
+
+### 完成内容
+- **导出 Word**：工具栏（保存按钮右侧）新增「导出 Word」按钮。点击 → 系统保存框（默认同目录同名 `.docx`）→ 后端经 pandoc 把当前编辑器内容（含未保存改动，导出「所见」）转成 `.docx`。
+  - 引擎走 **Rust 子进程调 pandoc**：`export_docx` 命令把 markdown 经 stdin 喂入、`-o` 直接产出文件，不落临时文件。**无新增依赖**（std + 已有 dialog 插件），App 体积不变。
+  - pandoc 未安装 → 后端返回 `PANDOC_NOT_FOUND`，前端弹友好提示「brew install pandoc」，不静默失败。
+  - 本轮用 Word 默认样式；代码注释里预留 `--reference-doc` 接口，将来套上报模板即可。
+- **状态栏重排**：左下角 = 明暗切换按钮 + 版本号；右下角 = 保存状态 + 字数（`N 字`）。去掉左下角文档名（标签栏已有，冗余）。字数复用 Vditor 的 `counter.after` 回调（已正确数中文），隐藏 Vditor 自带的编辑器内计数器避免重复。
+
+### 关键决策
+- **导出在 Rust 侧 shell out，而非前端 plugin-shell**：避免声明 shell capability/权限，后端 Rust 本就能跑子进程。
+- **macOS GUI PATH 坑**：Finder 启动的 App 不继承 shell PATH，`Command::new("pandoc")` 会 NotFound 即使已安装。`pandoc_path()` 先显式探测 `/opt/homebrew/bin`、`/usr/local/bin`（能 `exists()` 验证），都没有再退回裸名交给 PATH。
+- 状态栏保存状态（已保存/未保存…）保留——是有用的实时反馈；文档名才是真冗余。
+
+### 遗留问题 / 下次继续
+- Mermaid 图导出为代码块（非图片），要变图需预渲染，本轮不做。
+- 上报样式模板（中文字体/页边距/页眉页脚）待用户提供 `.docx` 后接 `--reference-doc`。
+- 字数刷新已核实：Vditor IR 的 afterRender 里 counter 仅受 `counter.enable` 门控、不受 `enableInput` 影响（index.js:11399），故 `setValue`（切文件）也会触发 `counter.after`，无需兜底。
+
 ## 2026-06-24 — 新增阅读模式（只读渲染 + 复制无符号）
 
 ### 完成内容

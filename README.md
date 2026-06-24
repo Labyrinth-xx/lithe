@@ -52,6 +52,7 @@ If you only need a static preview, your IDE already does that. Lithe is for the 
 - A pop-out folder browser (left) + browser-style tabs for juggling multiple files, with tab tear-out into new windows
 - Document outline (right) and live word count
 - Math (KaTeX), code highlighting (highlight.js), Mermaid diagrams — all bundled locally
+- One-click **export to Word** (`.docx`) for sharing or reporting — runs locally via [pandoc](https://pandoc.org), no network or account (install once: `brew install pandoc`)
 - Light / Dark theme, follows the system, remembered across launches
 - Debounced auto-save + ⌘S
 - Registers as a handler for `.md` / `.markdown` — double-click to open
@@ -70,6 +71,8 @@ Key files: [`src-tauri/src/lib.rs`](src-tauri/src/lib.rs) (Rust I/O + file watch
 ## Download & run
 
 **Just want to use it?** Grab the latest `.dmg` from the [**Releases page**](https://github.com/Labyrinth-xx/lithe/releases/latest) (macOS, **Apple Silicon** only), open it, and drag Lithe into Applications.
+
+**Optional — Word export:** the toolbar's *Export to Word* button needs [pandoc](https://pandoc.org). Install it once with `brew install pandoc`; until then the button shows a friendly reminder instead of failing. Nothing else about Lithe needs it.
 
 **First launch (unsigned build):** Lithe isn't code-signed yet, so macOS Gatekeeper will warn on first open. Right-click `Lithe.app` → **Open** → **Open** once. On macOS Sequoia (15+) the dialog may only show "Done" — then go to **System Settings → Privacy & Security → Open Anyway** and launch again. Subsequent launches are normal. (Terminal alternative: `xattr -dr com.apple.quarantine /Applications/Lithe.app`.)
 
