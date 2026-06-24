@@ -53,13 +53,14 @@ async function renderReader(markdown?: string): Promise<void> {
   // getValue() 是否已同步完成的时序假设；未传则回退到取编辑器当前内容（切换/切主题场景）。
   const md = markdown ?? deps.getMarkdown();
   const dark = deps.isDark();
+  const mode = dark ? "dark" : "light";
   try {
     await Vditor.preview(reader, md, {
-      mode: dark ? "dark" : "light",
+      mode,
       cdn: "/vditor",
       hljs: { enable: true, lineNumber: false, style: dark ? "github-dark" : "github" },
       math: { engine: "KaTeX", inlineDigit: true },
-      theme: { current: dark ? "dark" : "light", path: CONTENT_THEME_PATH },
+      theme: { current: mode, path: CONTENT_THEME_PATH },
     });
   } catch (e) {
     console.error("[reading-mode] 阅读区渲染失败", e);
@@ -74,8 +75,9 @@ function swapButtonIcon(): void {
   if (!wrap) return;
   const svg = wrap.querySelector("svg");
   if (svg) svg.outerHTML = reading ? PEN_ICON : BOOK_ICON;
-  const inner = wrap.querySelector("button") ?? wrap;
-  inner.setAttribute("aria-label", reading ? "编辑模式" : "阅读模式");
+  // aria-label 即 Vditor 悬浮提示文案；设在内层 button（带 vditor-tooltipped 的那个）上。
+  const button = wrap.querySelector("button");
+  if (button) button.setAttribute("aria-label", reading ? "编辑模式" : "阅读模式");
 }
 
 /** 应用当前模式：切 workspace class + 换图标；进阅读则对齐顶部并渲染。 */
