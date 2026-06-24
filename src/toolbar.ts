@@ -19,6 +19,8 @@ export interface ToolbarHandlers {
   onToggleFolder: () => void;
   /** 保存按钮：存盘（新文档触发另存为）。 */
   onSave: () => void;
+  /** 阅读/编辑切换按钮：在只读阅读视图与 ir 编辑器之间切换。 */
+  onToggleReadMode: () => void;
 }
 
 // 这三个图标走描边（空心）风格——描边样式见 styles.css 的 .lithe-*-btn svg 规则。
@@ -31,6 +33,14 @@ const SAVE_ICON = `<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 
 // 大纲图标：描边的层级线条（两条满宽 + 两条缩进），读作“文档大纲/目录结构”——
 // 替换 Vditor 内置 outline 用的 align-center 图标（那个看起来像“居中排版”）。
 const OUTLINE_ICON = `<svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="8" y1="11" x2="21" y2="11"/><line x1="8" y1="15" x2="21" y2="15"/><line x1="3" y1="20" x2="21" y2="20"/></svg>`;
+
+// 阅读/编辑切换按钮的两个图标（描边风格，规则见 styles.css 的 .lithe-*-btn svg）。
+// reading-mode.ts 切换时引用这两个常量替换按钮 innerHTML，故 export。
+// 书本（打开的书 + 中缝竖线）：编辑态显示，意为「点我去阅读」。
+export const BOOK_ICON = `<svg viewBox="0 0 24 24"><path d="M12 6.5C10.4 5.5 7.7 5 4 5v13c3.7 0 6.4.5 8 1.5 1.6-1 4.3-1.5 8-1.5V5c-3.7 0-6.4.5-8 1.5z"/><line x1="12" y1="6.5" x2="12" y2="20"/></svg>`;
+
+// 钢笔（笔身向右偏 + 底部一小段笔迹）：阅读态显示，意为「点我去编辑」。经典 edit 图标。
+export const PEN_ICON = `<svg viewBox="0 0 24 24"><path d="M15.5 4.5a2 2 0 0 1 3 3L8 18l-4 1.2L5.2 15z"/><path d="M4 21h6"/></svg>`;
 
 // 故意不放 edit-mode（源码/分屏切换）—— 留到后续梯队，避免与 ir 加载时序交互。
 const EDIT_ITEMS: ToolbarItem[] = [
@@ -86,6 +96,17 @@ export function buildToolbar(h: ToolbarHandlers): ToolbarItem[] {
       click: () => h.onSave(),
     },
     "|",
+    // 阅读/编辑切换：float:right 顶到工具栏最右边缘。多个 float:right 元素里，
+    // 源码靠前者更靠右，所以放在 EDIT_ITEMS（含 outline）之前 → 它在最右、outline 退到其左。
+    // 初始图标给书本；默认进阅读模式时 reading-mode.ts 会换成钢笔。
+    {
+      name: "lithe-read-mode",
+      className: "lithe-read-mode-btn",
+      tip: "阅读模式",
+      tipPosition: "sw",
+      icon: BOOK_ICON,
+      click: () => h.onToggleReadMode(),
+    },
     ...EDIT_ITEMS,
   ];
 }

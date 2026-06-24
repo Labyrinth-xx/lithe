@@ -26,8 +26,10 @@ body {
   height: 100vh;
 }
 
-/* 工作区单列：编辑器铺满（文件树改为浮窗，不再占据固定栏位）。 */
+/* 工作区单列：编辑器铺满（文件树改为浮窗，不再占据固定栏位）。
+   position:relative 作为 #reader 绝对定位的参照（阅读模式只读区盖在工具栏下方）。 */
 #workspace {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr;
   min-height: 0;
@@ -38,6 +40,28 @@ body {
   min-width: 0;
   min-height: 0;
   height: 100%;
+}
+
+/* ===== 阅读模式只读区 ===== */
+/* 默认隐藏；进入阅读模式时盖在工具栏下方（top 由 reading-mode.ts 实测工具栏高度后设）。 */
+#reader {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 20px 40px;
+  box-sizing: border-box;
+  background: #fff;
+  z-index: 5;
+}
+#workspace.reading-mode #reader {
+  display: block;
+}
+body.dark #reader {
+  background: #1e1e1e;
 }
 
 /* 让 Vditor 内容区撑满 */
@@ -175,16 +199,19 @@ body {
   font-size: 13px;
 }
 
-/* 大纲按钮顶到工具栏最右边缘（Vditor 工具栏项默认 float:left，这里单独让它 float:right）。 */
-.vditor-toolbar .lithe-outline-btn {
+/* 大纲 + 阅读模式按钮顶到工具栏右边缘（Vditor 工具栏项默认 float:left，这里单独让它们 float:right）。
+   两个 float:right 里源码靠前者更靠右：阅读模式按钮源码在 outline 之前 → 它在最右、outline 在其左。 */
+.vditor-toolbar .lithe-outline-btn,
+.vditor-toolbar .lithe-read-mode-btn {
   float: right;
 }
 
-/* 三个自定义按钮（文件夹/保存/大纲）走描边空心风格：Vditor 默认把工具栏 svg 强制
+/* 自定义按钮（文件夹/保存/大纲/阅读模式）走描边空心风格：Vditor 默认把工具栏 svg 强制
    实心填充 + stroke 归零，这里针对性改回 fill:none + 细描边，呈现细线观感。 */
 .lithe-folder-toggle svg,
 .lithe-save-btn svg,
-.lithe-outline-btn svg {
+.lithe-outline-btn svg,
+.lithe-read-mode-btn svg {
   fill: none !important;
   stroke: currentColor !important;
   stroke-width: 2 !important;

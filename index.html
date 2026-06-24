@@ -11,6 +11,9 @@
     <div id="tabbar"></div>
     <div id="workspace">
       <div id="editor"></div>
+      <!-- 阅读模式只读区：Vditor.preview 渲染只读 HTML（无 md 符号、复制即纯文字），
+           盖在工具栏下方。显隐由 #workspace.reading-mode 控制，顶部偏移由 reading-mode.ts 运行时设。 -->
+      <div id="reader" class="vditor-reset"></div>
     </div>
     <!-- 文件夹浮窗：由顶部文件夹按钮唤出，定位贴在该按钮下方（见 workspace.ts） -->
     <div id="folder-popover" hidden>

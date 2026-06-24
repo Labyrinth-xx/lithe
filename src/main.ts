@@ -7,6 +7,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { decideExternalChange } from "./sync-logic";
 import { confirmUnsavedClose } from "./unsaved-dialog";
 import { buildToolbar } from "./toolbar";
+import { initReadingMode, toggleReadingMode, refreshIfReading } from "./reading-mode";
 import { basename } from "./utils";
 import {
   initWorkspace,
@@ -60,6 +61,7 @@ function applyContent(content: string): void {
   dirty = false;
   reflectDirty(false); // 清掉 active 标签的未保存圆点
   lastWrittenContent = content; // 编辑器与磁盘此刻一致
+  refreshIfReading(content); // 若正处于阅读模式，用最新内容重渲染只读区（切文件/外部更新都经此）
   setTimeout(() => {
     loading = false;
   }, 50);
@@ -243,6 +245,7 @@ window.addEventListener("DOMContentLoaded", () => {
     toolbar: buildToolbar({
       onToggleFolder: () => toggleFolderPopover(),
       onSave: () => void saveNow(),
+      onToggleReadMode: () => toggleReadingMode(),
     }),
     counter: { enable: true, type: "text" },
     outline: { enable: false, position: "right" },
@@ -258,7 +261,10 @@ window.addEventListener("DOMContentLoaded", () => {
       updateThemeButton(initTheme(vditor));
       document
         .querySelector<HTMLButtonElement>("#theme-toggle")
-        ?.addEventListener("click", () => updateThemeButton(toggleTheme(vditor)));
+        ?.addEventListener("click", () => {
+          updateThemeButton(toggleTheme(vditor));
+          refreshIfReading(); // 切主题后若在阅读模式，重渲染只读区以同步深/浅色
+        });
       // 侧边栏 + 标签：把编辑器操作以 bridge 形式交给 workspace 编排。
       initWorkspace({ switchToFile, saveNow, showSample });
       const opened = await invoke<string | null>("get_opened_file");
@@ -266,8 +272,17 @@ window.addEventListener("DOMContentLoaded", () => {
         await openFile(opened); // 建标签 + 切到该文件
         await ensureFolderFor(opened); // 自动带出所在文件夹的 .md 树
       } else {
-        void loadCurrent(); // 无指定文件 → 示例文档，树留空
+        await loadCurrent(); // 无指定文件 → 示例文档，树留空
       }
+      // 内容载入后再初始化阅读模式：默认进阅读（Lithe 定位是阅读器），
+      // 取最新 md 渲染只读区、把按钮换成钢笔。依赖以函数注入，本模块不直接持有 vditor。
+      initReadingMode(
+        {
+          getMarkdown: () => vditor.getValue(),
+          isDark: () => document.body.classList.contains("dark"),
+        },
+        true
+      );
     },
   });
   (window as unknown as { __vditor: Vditor }).__vditor = vditor;

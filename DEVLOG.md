@@ -1,5 +1,28 @@
 # DEVLOG — Lithe
 
+## 2026-06-24 — 新增阅读模式（只读渲染 + 复制无符号）
+
+### 完成内容
+- **阅读模式**：新增「阅读 ⇄ 编辑」切换。阅读模式用 `Vditor.preview` 把当前 md 渲染成只读 HTML，盖在工具栏下方的 `#reader` 区。因为是纯 HTML 不是 contenteditable 编辑器，**选中复制出去是纯文字（无 `#`/`**` 符号）**——这是本功能的核心动机。
+- **默认进阅读模式**：打开文件默认即只读干净排版（Lithe 定位是阅读器），点笔切到编辑。
+- **切换按钮**：工具栏最右侧，编辑态显示书本图标、阅读态显示钢笔图标（运行时换 innerHTML）。`tipPosition:"sw"` 防右沿裁切。
+- **只读区定位**：`#reader` 绝对定位，`top` 由 JS 实测 `.vditor-toolbar` 高度后设，并用 `ResizeObserver` 监听工具栏高度变化（窄窗换行自动跟随），不硬编码像素。
+- **主题/内容同步**：`Vditor.preview` 配置复刻 `main.ts` 的 preview（hljs/math/content-theme），深浅色一致；切主题、切文件、外部改动都经 `refreshIfReading()` 用最新内容重渲染。
+
+### 关键决策
+- 阅读模式**保留工具栏**（按钮在内、始终可点），只读区盖在工具栏下方——而非整页覆盖把按钮也藏掉。
+- 新建独立模块 `src/reading-mode.ts`（自包含 + Delete Path），main/toolbar/index/styles 只做最小接入，符合垂直切片。
+- 切换按钮 `float:right` 且源码排在 outline 之前 → 顶到最右边缘（多个 float:right 源码靠前者更靠右）。
+
+### Bug 修复（同日）
+- **切换按钮点不动 + 图标歪**（一处根因两症状）：`swapButtonIcon` 原来用 `外层div.innerHTML = svg` 换图标，把 Vditor 在内层创建的 `<button data-type="lithe-read-mode">` 连同**直接绑在该 button 上的点击监听**一起抹掉了 → 点击失效（卡在阅读模式）；且裸 svg 没了 button 的尺寸约束 → 渲染成 35px 撑满、偏上显得歪。
+- **修法**：只替换内层 `<svg>`（`wrap.querySelector("svg").outerHTML = icon`），绝不动 `<button>`。验证：浏览器实测点击双向可切；钢笔/大纲/保存三按钮几何完全一致（svg 15×15 居中）。
+- **教训**：Vditor 自定义按钮的点击监听**直接绑在内层 button 元素**上（非事件委托），任何 innerHTML 重写都会丢监听——换图标必须精确到 svg 子节点。
+
+### 遗留问题 / 下次继续
+- 阅读模式下「大纲」按钮行为未特别处理（既有行为，点了会开大纲面板覆盖在隐藏的编辑器上），暂不影响使用。
+- 默认阅读模式是否需要持久化「上次用的模式」可后续按需加。
+
 ## 2026-06-19 — 工具栏交互打磨：悬浮提示 + 图标重绘 + 文件夹抽屉 + 大纲靠右
 
 ### 完成内容
