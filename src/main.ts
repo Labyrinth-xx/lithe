@@ -310,14 +310,15 @@ window.addEventListener("DOMContentLoaded", () => {
       } else {
         await loadCurrent(); // 无指定文件 → 示例文档，树留空
       }
-      // 内容载入后再初始化阅读模式：默认进阅读（Lithe 定位是阅读器），
+      // 内容载入后再初始化阅读模式：一律默认进编辑模式（含打开已有文件），
+      // 需要"复制无 md 符号的纯文字"时点工具栏的书本按钮切到阅读模式。
       // 取最新 md 渲染只读区、把按钮换成钢笔。依赖以函数注入，本模块不直接持有 vditor。
       initReadingMode(
         {
           getMarkdown: () => vditor.getValue(),
           isDark: () => document.body.classList.contains("dark"),
         },
-        true
+        false
       );
     },
   });
