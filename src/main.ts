@@ -163,23 +163,18 @@ async function saveAsNew(): Promise<boolean> {
 /** 导出 Word：把当前编辑器内容（含未保存改动，导出「所见」）经后端 pandoc 转成 .docx。
  *  默认输出到同目录同名 .docx；未命名新文档默认「未命名.docx」。pandoc 未安装时友好提示。 */
 async function exportWord(): Promise<void> {
-  const markdown = vditor.getValue();
-  const defaultPath = currentPath
-    ? `${parentDir(currentPath)}/${basename(currentPath).replace(/\.(md|markdown)$/i, "")}.docx`
-    : "未命名.docx";
-  let outPath: string | null;
+  // 全程 try/catch + alert：任何一步出错都弹窗，绝不静默（静默会让人以为「点了没反应」）。
   try {
-    outPath = await save({
+    const markdown = vditor.getValue();
+    const defaultPath = currentPath
+      ? `${parentDir(currentPath)}/${basename(currentPath).replace(/\.(md|markdown)$/i, "")}.docx`
+      : "未命名.docx";
+    const outPath = await save({
       title: "导出 Word",
       defaultPath,
       filters: [{ name: "Word", extensions: ["docx"] }],
     });
-  } catch (e) {
-    setStatus("", `导出失败：${e}`);
-    return;
-  }
-  if (!outPath) return; // 用户取消
-  try {
+    if (!outPath) return; // 用户取消保存框
     await invoke("export_docx", { markdown, outPath });
     setStatus("", "已导出 Word");
   } catch (e) {
@@ -189,6 +184,7 @@ async function exportWord(): Promise<void> {
       );
       setStatus("", "导出需先安装 pandoc");
     } else {
+      window.alert(`导出失败：${e}`);
       setStatus("", `导出失败：${e}`);
     }
   }
