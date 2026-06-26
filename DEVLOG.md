@@ -1,5 +1,19 @@
 # DEVLOG — Lithe
 
+## 2026-06-26 — 大纲面板移到最左侧 + 可拖拽改宽度 + 图标左对齐
+
+### 完成内容
+- **大纲改到窗口最左侧**：Vditor 内置大纲面板从右侧（`position: "right"`）改为左侧（`"left"`），作为 `.vditor-content` 第一个 flex 子元素内嵌，把正文推向右（非浮层）。`src/main.ts`。
+- **大纲宽度可拖拽**：新增 `src/outline-resize.ts`，在大纲右边缘加全高拖拽手柄（限 160–520px），拖动节流触发 window `resize` 让 Vditor `setPadding` 重排工具栏/正文。用 MutationObserver 跟随大纲显隐同步手柄；window blur 兜底解除卡死的拖拽态；防重复初始化。**宽度不持久化**（重启回默认 250px）。样式在 `src/styles.css`（`.lithe-outline-resizer` + `body.outline-resizing` + 深色模式）。
+- **大纲工具栏图标移到最左**：从工具栏最右（float:right）改到最左第一个图标，对应面板在左侧；tip 改向下弹。SVG 短线改为**左对齐**（从 x=3 起、右侧缩短）。`src/toolbar.ts` + `src/styles.css`。
+
+### 关键决策
+- 内嵌推开正文（非浮层）+ 宽度不记忆：均按用户明确选择。
+- 复用 Vditor 内置 outline 渲染与 `setPadding`，不自造大纲组件——改动最小、最稳。
+
+### 遗留问题 / 下次继续
+- 打包 `.dmg` 偶发失败（`bundle_dmg.sh`），不影响 `.app`；如需稳定出 dmg 再排查。
+
 ## 2026-06-24 — md 一键导出 Word（pandoc）+ 状态栏重排
 
 ### 完成内容

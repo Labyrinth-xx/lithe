@@ -9,6 +9,7 @@ import { confirmUnsavedClose } from "./unsaved-dialog";
 import { buildToolbar } from "./toolbar";
 import { initReadingMode, toggleReadingMode, refreshIfReading } from "./reading-mode";
 import { basename, parentDir } from "./utils";
+import { initOutlineResize } from "./outline-resize";
 import {
   initWorkspace,
   openFile,
@@ -284,7 +285,7 @@ window.addEventListener("DOMContentLoaded", () => {
       onToggleReadMode: () => toggleReadingMode(),
     }),
     counter: { enable: true, type: "text", after: (len: number) => setWordCount(len) },
-    outline: { enable: false, position: "right" },
+    outline: { enable: false, position: "left" },
     theme: dark ? "dark" : "classic",
     preview: {
       hljs: { enable: true, lineNumber: false, style: dark ? "github-dark" : "github" },
@@ -303,6 +304,7 @@ window.addEventListener("DOMContentLoaded", () => {
         });
       // 侧边栏 + 标签：把编辑器操作以 bridge 形式交给 workspace 编排。
       initWorkspace({ switchToFile, saveNow, showSample });
+      initOutlineResize(); // 给左侧大纲面板加可拖拽改宽度的手柄
       const opened = await invoke<string | null>("get_opened_file");
       if (opened) {
         await openFile(opened); // 建标签 + 切到该文件

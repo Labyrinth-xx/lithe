@@ -35,9 +35,9 @@ const SAVE_ICON = `<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 
 // 导出 Word 图标：描边文档 + 向下箭头，读作“把文档导出/下载成 Word”。
 const EXPORT_ICON = `<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>`;
 
-// 大纲图标：描边的层级线条（两条满宽 + 两条缩进），读作“文档大纲/目录结构”——
+// 大纲图标：描边线条（两条满宽 + 两条左对齐短线，右侧缩短），读作“文档大纲/目录结构”——
 // 替换 Vditor 内置 outline 用的 align-center 图标（那个看起来像“居中排版”）。
-const OUTLINE_ICON = `<svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="8" y1="11" x2="21" y2="11"/><line x1="8" y1="15" x2="21" y2="15"/><line x1="3" y1="20" x2="21" y2="20"/></svg>`;
+const OUTLINE_ICON = `<svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="11" x2="16" y2="11"/><line x1="3" y1="15" x2="16" y2="15"/><line x1="3" y1="20" x2="21" y2="20"/></svg>`;
 
 // 阅读/编辑切换按钮的两个图标（描边风格，规则见 styles.css 的 .lithe-*-btn svg）。
 // reading-mode.ts 切换时引用这两个常量替换按钮 innerHTML，故 export。
@@ -69,21 +69,21 @@ const EDIT_ITEMS: ToolbarItem[] = [
   "redo",
   "|",
   "fullscreen",
-  // 大纲：靠 CSS 的 float:right 顶到工具栏最右边缘（不跟左侧编辑组挤在一起）。
-  // 用 object 覆盖内置 outline 的图标（换成层级线条）+ 加 className 供 float/描边样式命中，
-  // 但保留 name:"outline" 以沿用内置的“开关大纲面板”行为（mergeToolbar 会 Object.assign 合并）。
-  // tipPosition 用 sw：处于右边缘，提示向左下展开，避免被窗口右沿裁掉。
-  {
-    name: "outline",
-    className: "lithe-outline-btn",
-    icon: OUTLINE_ICON,
-    tipPosition: "sw",
-  },
 ];
 
 /** 组装完整工具栏：文件夹 + 保存 + 分隔 + 编辑项。 */
 export function buildToolbar(h: ToolbarHandlers): ToolbarItem[] {
   return [
+    // 大纲：放工具栏最左（对应大纲面板在窗口最左侧）。
+    // 用 object 覆盖内置 outline 的图标（换成层级线条）+ className 供描边样式命中，
+    // 保留 name:"outline" 以沿用内置的“开关大纲面板”行为（mergeToolbar 按 name 合并，与位置无关）。
+    // tipPosition 用 s：在窗口顶部，提示统一向下弹，避免被标签栏裁掉。
+    {
+      name: "outline",
+      className: "lithe-outline-btn",
+      icon: OUTLINE_ICON,
+      tipPosition: "s",
+    },
     {
       name: "lithe-folder",
       className: "lithe-folder-toggle",

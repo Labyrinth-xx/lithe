@@ -199,9 +199,8 @@ body.dark #reader {
   font-size: 13px;
 }
 
-/* 大纲 + 阅读模式按钮顶到工具栏右边缘（Vditor 工具栏项默认 float:left，这里单独让它们 float:right）。
-   两个 float:right 里源码靠前者更靠右：阅读模式按钮源码在 outline 之前 → 它在最右、outline 在其左。 */
-.vditor-toolbar .lithe-outline-btn,
+/* 阅读模式按钮顶到工具栏右边缘（Vditor 工具栏项默认 float:left，这里单独让它 float:right）。
+   大纲按钮已移到工具栏最左（对应面板在左侧），不再 float:right。 */
 .vditor-toolbar .lithe-read-mode-btn {
   float: right;
 }
@@ -499,4 +498,43 @@ body.dark .tab-ghost {
 .vditor-reset h6 {
   font-size: 1em !important;
   font-weight: 600 !important;
+}
+
+/* ===== 左侧大纲面板右边缘的拖拽手柄（改宽度，逻辑见 outline-resize.ts） =====
+   手柄绝对定位在 .vditor-content（position:relative）内，left 由 JS 对到大纲右沿。
+   默认透明、只在 hover / 拖拽时显出一条细分隔线。 */
+.lithe-outline-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  margin-left: -3px; /* 6px 命中区跨在大纲右沿上，方便抓 */
+  z-index: 10;
+  cursor: col-resize;
+}
+.lithe-outline-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.lithe-outline-resizer:hover::after,
+body.outline-resizing .lithe-outline-resizer::after {
+  background: var(--border-color, #d0d0d0);
+}
+/* 拖拽中：全局 col-resize 光标 + 禁止选中文本 */
+body.outline-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.outline-resizing * {
+  cursor: col-resize !important;
+}
+body.dark .lithe-outline-resizer:hover::after,
+body.dark.outline-resizing .lithe-outline-resizer::after {
+  background: #555;
 }
