@@ -8,7 +8,8 @@ import { decideExternalChange } from "./sync-logic";
 import { confirmUnsavedClose } from "./unsaved-dialog";
 import { buildToolbar } from "./toolbar";
 import { initReadingMode, toggleReadingMode, refreshIfReading } from "./reading-mode";
-import { basename, parentDir } from "./utils";
+import { basename, parentDir, joinPath } from "./utils";
+import { MOD, PANDOC_INSTALL_CMD } from "./platform";
 import { initOutlineResize } from "./outline-resize";
 import {
   initWorkspace,
@@ -73,11 +74,11 @@ function applyContent(content: string): void {
   }, 50);
 }
 
-/** 加载 currentPath 指向的文件；无路径则给一篇空白的「未命名」新文档（可编辑、⌘S 另存为）。 */
+/** 加载 currentPath 指向的文件；无路径则给一篇空白的「未命名」新文档（可编辑、保存快捷键另存为）。 */
 async function loadCurrent(): Promise<void> {
   if (!currentPath) {
     applyContent("");
-    setStatus("未命名（新文档）", "⌘S 保存到本地");
+    setStatus("未命名（新文档）", `${MOD}S 保存到本地`);
     setTitle("未命名 — Lithe");
     return;
   }
@@ -96,8 +97,8 @@ function scheduleSave(): void {
   if (!dirty) reflectDirty(true); // 仅在 false→true 翻转时刷标签圆点，避免每次按键重建标签栏
   dirty = true;
   if (!currentPath) {
-    // 未命名新文档：没有磁盘位置，不自动写盘，等用户 ⌘S 选位置另存为。
-    setStatus("未命名（新文档）", "未保存 · ⌘S 保存到本地");
+    // 未命名新文档：没有磁盘位置，不自动写盘，等用户按保存快捷键选位置另存为。
+    setStatus("未命名（新文档）", `未保存 · ${MOD}S 保存到本地`);
     return;
   }
   setStatus(basename(currentPath), "未保存…");
@@ -168,7 +169,10 @@ async function exportWord(): Promise<void> {
   try {
     const markdown = vditor.getValue();
     const defaultPath = currentPath
-      ? `${parentDir(currentPath)}/${basename(currentPath).replace(/\.(md|markdown)$/i, "")}.docx`
+      ? joinPath(
+          parentDir(currentPath),
+          `${basename(currentPath).replace(/\.(md|markdown)$/i, "")}.docx`
+        )
       : "未命名.docx";
     const outPath = await save({
       title: "导出 Word",
@@ -181,7 +185,7 @@ async function exportWord(): Promise<void> {
   } catch (e) {
     if (String(e).includes("PANDOC_NOT_FOUND")) {
       window.alert(
-        "导出 Word 需要 pandoc。请在终端运行：\n\n    brew install pandoc\n\n装好后再点导出即可（只需装一次）。"
+        `导出 Word 需要 pandoc。请在终端运行：\n\n    ${PANDOC_INSTALL_CMD}\n\n装好后再点导出即可（只需装一次）。`
       );
       setStatus("", "导出需先安装 pandoc");
     } else {
@@ -326,7 +330,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   (window as unknown as { __vditor: Vditor }).__vditor = vditor;
 
-  // 快捷键：⌘S 存盘（新文档则另存为）/ ⌘N 开新空白文档窗口
+  // 快捷键：⌘/Ctrl+S 存盘（新文档则另存为）/ ⌘/Ctrl+N 开新空白文档窗口
   document.addEventListener("keydown", (e) => {
     if (!(e.metaKey || e.ctrlKey)) return;
     const k = e.key.toLowerCase();

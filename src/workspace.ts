@@ -28,7 +28,7 @@ import {
   type TreeState,
 } from "./file-tree/tree-data";
 import { renderTree } from "./file-tree/tree-view";
-import { parentDir } from "./utils";
+import { parentDir, isUnder } from "./utils";
 import { openInNewWindow, isOutsideCurrentWindow } from "./windows";
 
 /** main.ts 暴露给 workspace 的编辑器操作（workspace 只调这三个，不碰编辑器内部状态）。 */
@@ -195,7 +195,7 @@ export async function loadFolder(path: string): Promise<void> {
 
 /** 文件被打开时，若树为空或该文件不在当前根下，则自动带出它所在的文件夹。 */
 export async function ensureFolderFor(path: string): Promise<void> {
-  if (tree.root && path.startsWith(tree.root.path + "/")) return;
+  if (tree.root && isUnder(path, tree.root.path)) return;
   await loadFolder(parentDir(path));
 }
 

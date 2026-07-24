@@ -66,14 +66,42 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| format!("保存失败：{e}"))
 }
 
+/// 各平台 pandoc 的常见安装位置（按优先级）。
+#[cfg(target_os = "macos")]
+fn pandoc_candidates() -> Vec<String> {
+    vec![
+        "/opt/homebrew/bin/pandoc".to_string(), // Homebrew（Apple Silicon）
+        "/usr/local/bin/pandoc".to_string(),    // Homebrew（Intel）/ 官方 pkg
+    ]
+}
+
+#[cfg(windows)]
+fn pandoc_candidates() -> Vec<String> {
+    let mut v = vec![
+        r"C:\Program Files\Pandoc\pandoc.exe".to_string(), // 官方安装包 / winget（全机）
+        r"C:\ProgramData\chocolatey\bin\pandoc.exe".to_string(), // Chocolatey
+    ];
+    // 官方安装包的「仅为我安装」落在 %LOCALAPPDATA%\Pandoc。
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        v.push(format!(r"{local}\Pandoc\pandoc.exe"));
+    }
+    v
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn pandoc_candidates() -> Vec<String> {
+    Vec::new() // 其余平台直接靠 PATH
+}
+
 /// 找 pandoc 可执行文件。要害：Finder 启动的 GUI App 不继承 shell 的 PATH，
 /// `Command::new("pandoc")` 会 NotFound 即使已 `brew install pandoc`。
-/// 故先显式探测 Homebrew 常见安装路径（能 exists() 验证），都没有再退回裸名
-/// 交给 PATH 解析（开发态 / 已配 PATH 时命中；仍找不到则在 spawn 处按 NotFound 处理）。
+/// 故先显式探测各平台常见安装路径（能 exists() 验证），都没有再退回裸名
+/// 交给 PATH 解析（Windows GUI 进程继承系统 PATH，装过即命中；仍找不到则在
+/// spawn 处按 NotFound 处理）。
 fn pandoc_path() -> String {
-    for c in ["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"] {
-        if Path::new(c).exists() {
-            return c.to_string();
+    for c in pandoc_candidates() {
+        if Path::new(&c).exists() {
+            return c;
         }
     }
     "pandoc".to_string()
@@ -91,11 +119,19 @@ fn export_docx(markdown: String, out_path: String) -> Result<(), String> {
     use std::process::{Command, Stdio};
 
     let pandoc = pandoc_path();
-    let mut child = Command::new(&pandoc)
-        .args(["-f", "markdown", "-t", "docx", "-o", &out_path])
+    let mut cmd = Command::new(&pandoc);
+    cmd.args(["-f", "markdown", "-t", "docx", "-o", &out_path])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    // Windows：不给控制台子进程，否则导出瞬间会闪一个黑窗口。
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = cmd
         .spawn()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
@@ -327,10 +363,30 @@ fn spawn_file_watcher(handle: tauri::AppHandle) {
     });
 }
 
+/// 启动时要打开哪个文件。两条来源，按平台分：
+/// - 开发期：环境变量 MD_READER_FILE（各平台通用）。
+/// - Windows/Linux：文件关联双击时，系统把文件路径作为命令行参数传进来。
+///   （macOS 不走 argv，走 RunEvent::Opened，见 run() 末尾。）
+/// 只认真实存在的 .md/.markdown 文件，避免把 Tauri/系统自带的参数误当路径。
+fn initial_file() -> Option<PathBuf> {
+    if let Some(p) = std::env::var("MD_READER_FILE").ok().map(PathBuf::from) {
+        return Some(p);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        for arg in std::env::args_os().skip(1) {
+            let p = PathBuf::from(arg);
+            if is_markdown(&p) && p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 开发期：可用 MD_READER_FILE 指定初始文件
-    let initial = std::env::var("MD_READER_FILE").ok().map(PathBuf::from);
+    let initial = initial_file();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

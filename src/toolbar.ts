@@ -2,6 +2,8 @@
 // 后面接 Typora 风格的常用编辑项，全部排在 Vditor 工具栏同一行。
 // 觉得编辑项太满就改 EDIT_ITEMS；自定义按钮的字段见 vditor 的 IMenuItem。
 
+import { MOD } from "./platform";
+
 /** 工具栏项：字符串(内置项/分隔符) 或 自定义按钮对象。 */
 type ToolbarItem =
   | string
@@ -95,7 +97,7 @@ export function buildToolbar(h: ToolbarHandlers): ToolbarItem[] {
     {
       name: "lithe-save",
       className: "lithe-save-btn",
-      tip: "保存（⌘S）",
+      tip: `保存（${MOD}S）`,
       tipPosition: "s",
       icon: SAVE_ICON,
       click: () => h.onSave(),
