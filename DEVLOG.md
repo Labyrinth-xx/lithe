@@ -1,5 +1,21 @@
 # DEVLOG — Lithe
 
+## 2026-07-24 — 发布 v0.4.0（GitHub Release）
+
+### 完成内容
+- 重新跑 `npm run tauri build`（确保产物含 v0.3.0 之后全部提交），产出 `Lithe_0.4.0_aarch64.dmg`（8.2 MB）。
+- 打 tag `v0.4.0` 并建 GitHub Release，上传 dmg + SHA-256 校验值。
+- Release notes 覆盖 v0.3.0 → v0.4.0 的改动：阅读模式、一键导出 Word（pandoc）、修复新建/打开文档无法输入、大纲面板移到左侧且可拖拽改宽。
+
+### 关键决策
+- README 不用改：下载链接指向 `/releases/latest`、版本徽章是 `github/v/release` 动态徽章，发完自动跟上。
+
+### 遗留问题 / 下次继续
+- 仍是 **Apple Silicon only + 未签名**：Intel Mac / Windows 用户装不了；首次打开要过 Gatekeeper（右键→打开）。想去掉这一步需要苹果开发者账号（$99/年）。
+- Word 导出依赖用户自行 `brew install pandoc`，对不用命令行的人相当于不可用。
+
+---
+
 ## 2026-06-26 — 大纲面板移到最左侧 + 可拖拽改宽度 + 图标左对齐
 
 ### 完成内容
