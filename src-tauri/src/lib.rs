@@ -435,18 +435,21 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            // 双击 .md / “打开方式” 选本 app 时触发，携带 file:// URL
-            if let tauri::RunEvent::Opened { urls } = event {
+        .run(|_app_handle, _event| {
+            // 双击 .md / “打开方式” 选本 app 时触发，携带 file:// URL。
+            // 仅 macOS 有此事件（RunEvent::Opened 是 macOS/iOS 专有）；Windows/Linux 由系统
+            // 把路径作为命令行参数传给新进程，见 initial_file()。
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
                 if let Some(path) = urls.iter().filter_map(|u| u.to_file_path().ok()).next() {
-                    let Some(state) = app_handle.try_state::<AppState>() else {
+                    let Some(state) = _app_handle.try_state::<AppState>() else {
                         return;
                     };
                     let main_ready = *state.main_ready.lock().unwrap();
                     if main_ready {
                         // app 已在运行 + 主窗口已就绪 → 桌面双击开「新窗口」（独立窗口诉求）。
                         let _ = spawn_doc_window(
-                            app_handle,
+                            _app_handle,
                             Some(path.to_string_lossy().to_string()),
                             None,
                         );
