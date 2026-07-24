@@ -10,7 +10,7 @@
 
 ## 技术栈
 
-- **外壳**：Tauri v2（Rust）—— 用 macOS 原生 WKWebView，体积小
+- **外壳**：Tauri v2（Rust）—— 用系统原生 WebView（macOS WKWebView / Windows WebView2），体积小
 - **编辑内核**：Vditor 3（IR 即时渲染模式）—— 静态资源本地化在 `public/vditor/`，断网可用。已启用：精选工具栏、KaTeX 公式、highlight.js 代码高亮、Mermaid 等图表、大纲面板、字数统计、深色/浅色主题切换
 - **工作区**：左侧文件树侧边栏（打开文件夹递归列 `.md`、可展开折叠）+ 顶部浏览器式标签页（多文件并排、点击切换）
 - **前端**：原生 TypeScript + Vite（无框架）
@@ -26,6 +26,8 @@ lithe/
 │  ├─ file-tree/           # 文件树侧边栏：tree-data.ts(纯状态) + tree-view.ts(递归渲染)
 │  ├─ sync-logic.ts        # 纯函数：外部变动决策（ignore/reload/conflict），可单测
 │  ├─ toolbar.ts           # 精选工具栏常量（编辑增强）
+│  ├─ platform.ts          # 平台差异文案：快捷键写法(⌘S/Ctrl+S)、pandoc 安装命令(brew/winget)
+│  ├─ utils.ts             # 路径小工具：basename/parentDir/joinPath/isUnder，兼容 / 与 \
 │  ├─ theme.ts             # 深色/浅色主题切换（系统偏好 + localStorage + setTheme）
 │  ├─ styles.css           # 布局(grid 三行+侧栏)+ 标签/树样式 + 标题字号兜底 + 深色态
 │  └─ index.html(根目录)   # 标签栏 + 工作区(侧栏+编辑器) + 状态栏
@@ -35,14 +37,16 @@ lithe/
 │  └─ capabilities/default.json  # 权限（window:set-title + dialog:allow-open 选文件夹）
 ├─ public/vditor/          # Vditor 运行时资源（本地化，~23MB）
 ├─ test-sync-logic.ts      # sync-logic 单测（node 直接跑）
+├─ .github/workflows/      # build-windows.yml：在 GitHub 的 Windows 机器上出 NSIS/MSI 安装包
 └─ docs/                   # 本架构文档 + 模块卡
 ```
 
 ## 核心数据流
 
 ```
-双击 .md ──► macOS Launch Services ──► RunEvent::Opened(file URL)
-                                            │ 存入 AppState.target_file
+双击 .md ──► macOS: Launch Services ──► RunEvent::Opened(file URL)
+             Windows: 文件关联 ──► 新进程 argv[1] ──► initial_file()
+                                            │ 存入 AppState.pending["main"]
                                             ▼
 前端就绪 ──► invoke get_opened_file ──► invoke read_file ──► Vditor.setValue (渲染)
 
@@ -63,4 +67,6 @@ CC 后台改文件 ──► Rust 轮询线程(每秒看 mtime) ──► emit "
 - **外部监测用轮询而非文件监听库**：每秒看一次 mtime，简单、跨平台无坑、自动适配换文件；对单文件开销可忽略。
 - **回声抑制靠 `lastWrittenContent` 精确比对**：避免自动存盘被误判为外部改动（曾导致光标乱跳的竞态，已修）。
 - **切文件必经 `set_target_file` 重接轮询**：后台轮询盯的是后端 `target_file`，不是前端 `currentPath`。侧边栏/标签切文件是纯前端动作，故 `switchToFile` 必须「存旧 → set_target_file(新) → 载新」，且后端没改成功就中止切换，绝不让「轮询」与「编辑器」脱钩。关掉最后一个标签时 `set_target_file(null)` 让轮询闲置。
+- **跨平台差异只在三处收口**：① 双击打开的文件来源（macOS 事件 / 其余平台 argv，见 `initial_file()`）；② 路径分隔符（`utils.ts` 按路径字符串自身判断，不看运行平台）；③ 给人看的文案与 pandoc 位置（`platform.ts` + `pandoc_candidates()`）。其余代码一律平台无关。
+- **Windows 包在 CI 上构建**：Tauri 链接系统 WebView，macOS 上无法交叉编译出可用的 Windows 包，故用 GitHub Actions 的 windows runner 出包（手动触发或随 `v*` tag 自动上传到 Release）。
 - **标签 dirty 不变量**：一次只有 active 文件在编辑器，切走前必先存盘，故任意时刻最多 active 标签为脏 → 标签圆点直接镜像 main 的单个 `dirty`，无需每标签独立存储。

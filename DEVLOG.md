@@ -1,5 +1,27 @@
 # DEVLOG — Lithe
 
+## 2026-07-24 — 支持 Windows（跨平台改造 + CI 出安装包）
+
+### 完成内容
+- **路径跨平台**（`src/utils.ts`）：`basename`/`parentDir` 改为同时认 `/` 与 `\`，新增 `joinPath`/`isUnder`。此前 `C:\notes\a.md` 会被整条当成文件名，标签页/标题/状态栏全错，导出 Word 的默认路径也拼错。
+- **双击打开**（`src-tauri/src/lib.rs`）：新增 `initial_file()`——非 macOS 从 `argv` 取文件路径（Windows 文件关联走命令行参数，**不发** `RunEvent::Opened`）。`RunEvent::Opened` 分支加 `#[cfg(target_os = "macos")]`，否则 Windows 直接编译失败（该 variant 是 macOS/iOS 专有，CI 首跑就红在这）。
+- **pandoc 跨平台**：`pandoc_candidates()` 按平台给候选路径（Windows：Program Files / Chocolatey / `%LOCALAPPDATA%`）；子进程加 `CREATE_NO_WINDOW`，否则导出时闪黑窗。
+- **平台文案**（新增 `src/platform.ts`）：快捷键 `⌘S`/`Ctrl+S`、pandoc 安装命令 `brew`/`winget` 按平台切。
+- **CI**（新增 `.github/workflows/build-windows.yml`）：windows-latest 上构建，产出 `Lithe_<ver>_x64-setup.exe`(NSIS, 6.9 MB) + `.msi`(7.9 MB)；手动可跑，推 `v*` tag 则自动上传到对应 Release。Rust 缓存后约 3-7 分钟。
+- 文档：README 加 Windows 下载/首次启动(SmartScreen)/pandoc winget/CI 出包说明；ARCHITECTURE 与模块卡补 Windows 入口、注册表、卸载路径。
+
+### 关键决策
+- **Windows 包在 GitHub Actions 上构建**，不试图在 Mac 上交叉编译：Tauri 链系统 WebView + MSVC，交叉编译不现实。
+- **路径分隔符按「路径字符串自身」判断，不按运行平台**：后端给什么路径就按什么分隔符处理，开发态跨平台调试不会错。
+- 平台差异只收口在三处（argv 取文件 / 路径工具 / 文案+pandoc 位置），其余代码保持平台无关。
+
+### 遗留问题 / 下次继续
+- **Windows 端只验证了「能编译、能出安装包」，没有真机跑过**：文件关联双击、导出 Word、外部改动实时刷新都待在真 Windows 上冒烟。
+- Windows 未做代码签名 → 首次安装 SmartScreen 拦一次（需 EV 证书才能免，年费更贵）。
+- 未接单实例（single-instance）：Windows 上连续双击多个 .md 会起多个进程，各开各的窗口；行为可用，但比 macOS 多占内存。
+
+---
+
 ## 2026-07-24 — 发布 v0.4.0（GitHub Release）
 
 ### 完成内容
